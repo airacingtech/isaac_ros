@@ -1,0 +1,9 @@
+Origin: airacingtech
+Label: VPI
+Suite: stabe
+Codename: jammy
+Version: 3.2.4
+Architectures: amd64
+Components: main
+Description: NVIDIA VPI mirror for ROS 2 builds
+l
