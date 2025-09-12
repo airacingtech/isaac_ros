@@ -1,9 +1,12 @@
-Origin: airacingtech
-Label: VPI
-Suite: stabe
+Origin: isaac_ros
+Label: isaac_ros
+Suite: stable
 Codename: jammy
-Version: 3.2.4
 Architectures: amd64
 Components: main
-Description: NVIDIA VPI mirror for ROS 2 builds
-l
+Description: Isaac ROS APT repo
+Date: Fri, 12 Sep 2025 00:07:48 +0000
+MD5Sum:
+ 01512277303d74d7839eb71113c76fa3 11 Packages.gz
+SHA256:
+ 3d3ed122037599ffb60171e4f7450281e5aa1a08d4845a0509d101ddff5a0b92 11 Packages.gz
