@@ -1,22 +1,7 @@
-build_datetime: '2025-09-22T23:02:26.027991'
-git_branch: art-iron
-git_commit_date: 2025-09-11 14:15:58 -1000
-git_commit_hash: ace6d112d6a6091a3bcae72c389ed8bc95699774
-git_commit_message: 'Move apt repo into docs for GitHub Pages
-
-
-  Add README installation steps
-
-
-  readme fix
-
-
-  Update README.md
-
-
-  Update README.md
-
-
-  Update README.md'
+build_datetime: '2025-09-22T23:42:03.603905'
+git_branch: kevin/cleanup
+git_commit_date: 2025-09-22 23:07:41 -1000
+git_commit_hash: 4de28b8dfc8698e24fba1d63f68a7bd1d3132532
+git_commit_message: Remove vision_opencv
 git_workspace_dirty: 'Yes'
 version: 3.2.10
