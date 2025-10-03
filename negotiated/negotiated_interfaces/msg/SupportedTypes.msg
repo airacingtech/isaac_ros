@@ -1,1 +1,0 @@
-SupportedType[] supported_types
