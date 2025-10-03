@@ -1,13 +1,7 @@
-Date: Fri, 03 Oct 2025 23:26:54 +0000
-MD5Sum:
- 01512277303d74d7839eb71113c76fa3              716 Packages.gz
- 030e09a7da1ca47dcdab49eeafc894d7               38 Release
-SHA1:
- 6684e3a4409998cd2f7728428e5426721fbbef2f              716 Packages.gz
- dd5b990a3450366e85fa873442fe48ac51aedebf               38 Release
-SHA256:
- 3d3ed122037599ffb60171e4f7450281e5aa1a08d4845a0509d101ddff5a0b92              716 Packages.gz
- bda1064a505b8932f525c9f483b556079a67a89e3f2c9218cc2fe09125dc755a               38 Release
-SHA512:
- 2927cafac0b8588c94aa9c977c605e16609db6d7254672ce2e7b34602a9e74493979b0becc88c605b183c2536263db2f3bff697b4d9e5fd3da389ec5a2117221              716 Packages.gz
- 74d1d1a25265fffd72ef169ddc40efba38a0c47593cc0507f29cc2cb2d13e52e1bd71babfdf3a0f610bcb34402c230af1eb55bec1df1b0398f4d8853c4eab494               38 Release
+Origin: isaac_ros
+Label: isaac_ros
+Suite: stable
+Codename: stable
+Architectures: amd64
+Components: ./
+Description: Isaac ROS flat repo

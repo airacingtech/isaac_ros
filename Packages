@@ -1,0 +1,50 @@
+Package: libnvvpi3
+Version: 3.2.4
+Architecture: amd64
+Maintainer: VPI Support <vpi-support@nvidia.com>
+Installed-Size: 444593
+Replaces: vpi2-dev (<< 2.1.0)
+Filename: ./libnvvpi3_3.2.4_amd64.deb
+Size: 77709120
+MD5sum: 62e2c15d8661c845f8184fa16465d5f4
+SHA1: a340aa79ddf80c3e19d162cbe8a3a893cc0acb81
+SHA256: 5a2a7b91417539e760c6577fbd1489dc4417f02e657af42ba5289edb3722fd1b
+Section: devel
+Priority: optional
+Homepage: https://developer.nvidia.com/embedded/vpi
+Description: NVIDIA Vision Programming Interface library
+
+Package: vpi3-dev
+Version: 3.2.4
+Architecture: amd64
+Maintainer: VPI Support <vpi-support@nvidia.com>
+Installed-Size: 871
+Depends: libnvvpi3 (>= 3.2)
+Breaks: vpi-dev
+Replaces: vpi-dev
+Filename: ./vpi3-dev_3.2.4_amd64.deb
+Size: 91268
+MD5sum: 915c3a110786e92823c64c9f3440a091
+SHA1: 68a755ffc630313d0e71bf74b06480fa10865caf
+SHA256: 498edd79552201dd2720c45b67a0d51fbcd33bf547848dd4526023b670f2c04d
+Section: devel
+Priority: optional
+Homepage: https://developer.nvidia.com/embedded/vpi
+Description: NVIDIA VPI C/C++ development library and headers
+
+Package: vpi3-samples
+Version: 3.2.4
+Architecture: amd64
+Maintainer: VPI Support <vpi-support@nvidia.com>
+Installed-Size: 17260
+Depends: vpi3-dev (>= 3.2)
+Filename: ./vpi3-samples_3.2.4_amd64.deb
+Size: 17180562
+MD5sum: ad71db6cbe74f6125d8060a4e1747fcd
+SHA1: 093e6968589de888ec4314fa2788b9a90601522f
+SHA256: 66772682c3ab68ec5136a7a06ff326cbaeab1ee386db1cf90f93a3ae77f99f35
+Section: devel
+Priority: optional
+Homepage: https://developer.nvidia.com/embedded/vpi
+Description: NVIDIA VPI command-line sample applications
+
