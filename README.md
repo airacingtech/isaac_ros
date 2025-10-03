@@ -6,8 +6,11 @@ sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://airacingtech.github.io/isaac_ros/isaac_ros.gpg \
   | gpg --dearmor | sudo tee /etc/apt/keyrings/isaac_ros.gpg > /dev/null
 
-echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/isaac_ros.gpg] https://airacingtech.github.io/isaac_ros /" \
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/isaac_ros.gpg] https://airacingtech.github.io/isaac_ros ./" \
   | sudo tee /etc/apt/sources.list.d/isaac_ros.list
+
+sudo apt update
+sudo apt install libnvvpi3 vpi3-dev vpi3-samples
 ```
 
 ## isaac_ros_gxf
