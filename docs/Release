@@ -1,12 +1,13 @@
-Origin: isaac_ros
-Label: isaac_ros
-Suite: stable
-Codename: jammy
-Architectures: amd64
-Components: main
-Description: Isaac ROS APT repo
-Date: Fri, 12 Sep 2025 00:07:48 +0000
+Date: Fri, 03 Oct 2025 23:18:20 +0000
 MD5Sum:
- 01512277303d74d7839eb71113c76fa3 11 Packages.gz
+ 01512277303d74d7839eb71113c76fa3              716 Packages.gz
+ a6ca89d6d2e05d5c8cad57c531c480da               38 Release
+SHA1:
+ 6684e3a4409998cd2f7728428e5426721fbbef2f              716 Packages.gz
+ 0259863e4f615ea65ef707e4bd15c3973bd7c91b               38 Release
 SHA256:
- 3d3ed122037599ffb60171e4f7450281e5aa1a08d4845a0509d101ddff5a0b92 11 Packages.gz
+ 3d3ed122037599ffb60171e4f7450281e5aa1a08d4845a0509d101ddff5a0b92              716 Packages.gz
+ b5bfea9d4488a0ba7be92667fc58286981e4e14e410be7ff03934b8e4b415e4a               38 Release
+SHA512:
+ 2927cafac0b8588c94aa9c977c605e16609db6d7254672ce2e7b34602a9e74493979b0becc88c605b183c2536263db2f3bff697b4d9e5fd3da389ec5a2117221              716 Packages.gz
+ b78c3ed0dd0c6a03804046e1d3f87226e7da5bc55b1740a52446b26f297f24bd99845ec3c4464a5cf4a39043160e86595a1900c4a6181920409b0f336f5b0c99               38 Release
