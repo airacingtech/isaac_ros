@@ -1,0 +1,28 @@
+Architectures: amd64
+Codename: jammy
+Components: main
+Date: Fri, 03 Oct 2025 23:20:54 +0000
+Description: isaac_ros VPI deb repository
+Label: isaac_ros
+Origin: isaac_ros
+Suite: stable
+MD5Sum:
+ 1c6dfd9ac97f9d831af41e8007a2c503              719 Packages.gz
+ c10db3728330e1486f2a17c86d2e559a              183 Release
+ 01512277303d74d7839eb71113c76fa3              716 docs/Packages.gz
+ d584ed170575763225b6add92245d6b8              828 docs/Release
+SHA1:
+ c8ed9b7f455ac8b2ef63e55f6ca440cf89d3223a              719 Packages.gz
+ 5ab885d661e64a8e157653b735f54b4e5f056a70              183 Release
+ 6684e3a4409998cd2f7728428e5426721fbbef2f              716 docs/Packages.gz
+ 56136e94d03ec245562cf50bedb4fdbc705f444c              828 docs/Release
+SHA256:
+ e71b1b79c2049d178defdb0137c8c4beff1fe48d99f4765bcc0f8cf8c2a93368              719 Packages.gz
+ f9e822fd0b36064dd4015aaced477d64a7135c72752a20ce0296991e881dfd00              183 Release
+ 3d3ed122037599ffb60171e4f7450281e5aa1a08d4845a0509d101ddff5a0b92              716 docs/Packages.gz
+ f51b84b9419daf25cead92214bfc34b98ea013da6be471d4f80fe186d8d2e9c7              828 docs/Release
+SHA512:
+ ac6921652d07272debee11be96e0a084df4ad188ae76f83105ec9882453533d93fc74405422d9ff56bf72bea17b45f783e3825502eb79702b424da5ee87b8a28              719 Packages.gz
+ cf0587dc847894b876e2c2b45e141fb543d93befeb8b9370167fc8bb5d3cdc9ad1b038cb3eaa9b54746b6ac2cb0cbdfca2c6270fd5b1053ec08d44e03f8598ee              183 Release
+ 2927cafac0b8588c94aa9c977c605e16609db6d7254672ce2e7b34602a9e74493979b0becc88c605b183c2536263db2f3bff697b4d9e5fd3da389ec5a2117221              716 docs/Packages.gz
+ efb799a8763e4d208fb34610fbdba1ae52394d5cec143a0004606baba11976a5d03859e5110cf6b859e54bce483f18b4e17925fd789ef7f65b987925a9acee0d              828 docs/Release
