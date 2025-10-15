@@ -1,5 +1,5 @@
 # Installation
-Please ensure that you are running CUDA 12.6.
+Please ensure that you are running [CUDA 12.6](https://developer.nvidia.com/cuda-12-6-0-download-archive?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=22.04&target_type=deb_network).
 
 ## NVIDIA VPI
 Please add this to your apt package manager.
