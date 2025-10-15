@@ -1,4 +1,6 @@
 # Installation
+Please ensure that you are running CUDA 12.6.
+
 ## NVIDIA VPI
 Please add this to your apt package manager.
 ```bash
