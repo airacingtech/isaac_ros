@@ -18,6 +18,7 @@ sudo apt install libnvvpi3 vpi3-dev vpi3-samples
 ## isaac_ros_gxf
 Please run these commands inside of isaac_ros_gxf.
 ```bash
+sudo apt install git-lfs
 git lfs install
 git lfs pull
 ```
@@ -25,6 +26,7 @@ git lfs pull
 ## Redundant type specialization
 There is a redundant type specialization within iron that conflicts with GCC type specialization. This can be fixed easily by commenting out the generic type specialization.
 ```cpp
+// /opt/ros/iron/rclcpp_action/rclcpp_action/types.hpp
 template<>
 struct less<rclcpp_action::GoalUUID>
 {
