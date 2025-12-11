@@ -22,8 +22,17 @@ git lfs install
 git lfs pull
 ```
 
-## rclcpp_action conflicts with gcc
-There is a function conflict which must be patched and can be done easily via:
-```bash
-sudo sed -i 's/#if !(defined(__GLIBCXX__) && __GLIBCXX__ >= 20220706)/#if !(defined(__GLIBCXX__))/' /opt/ros/iron/include/rclcpp_action/rclcpp_action/types.hpp
+## Redundant type specialization
+There is a redundant type specialization within iron that conflicts with GCC type specialization. This can be fixed easily by commenting out the generic type specialization.
+```cpp
+template<>
+struct less<rclcpp_action::GoalUUID>
+{
+  bool operator()(
+    const rclcpp_action::GoalUUID & lhs,
+    const rclcpp_action::GoalUUID & rhs) const
+  {
+    return lhs < rhs;
+  }
+};
 ```
