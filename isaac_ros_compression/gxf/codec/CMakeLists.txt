@@ -61,22 +61,26 @@ target_include_directories(gxf_video_decoder_extension PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/libv4l2/include
 )
 
-add_library(nvbuf_fdmap SHARED IMPORTED)
-add_library(nvbufsurface SHARED IMPORTED)
-add_library(nvbufsurftransform SHARED IMPORTED)
-add_library(nvv4l2 SHARED IMPORTED)
-add_library(cuvidv4l2 SHARED IMPORTED)
-
 execute_process(COMMAND uname -m COMMAND tr -d '\n' OUTPUT_VARIABLE ARCHITECTURE)
 message( STATUS "Architecture: ${ARCHITECTURE}" )
 
 if( ${ARCHITECTURE} STREQUAL "x86_64" )
-  set_property(TARGET nvbuf_fdmap PROPERTY IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libnvbuf_fdmap.so)
-  set_property(TARGET nvbufsurface PROPERTY IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libnvbufsurface.so)
-  set_property(TARGET nvbufsurftransform PROPERTY IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libnvbufsurftransform.so)
-  set_property(TARGET nvv4l2 PROPERTY IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libnvv4l2.so)
-  set_property(TARGET cuvidv4l2 PROPERTY IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libcuvidv4l2.so)
+  # On x86_64, use standard NVIDIA video codec libraries instead of Jetson-specific v4l2 wrappers
+  add_library(nvcuvid SHARED IMPORTED)
+  add_library(nvidia_encode SHARED IMPORTED)
+  
+  set_property(TARGET nvcuvid PROPERTY IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libnvcuvid.so)
+  set_property(TARGET nvidia_encode PROPERTY IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libnvidia-encode.so)
+  
+  message(STATUS "Building for x86_64 - using standard NVIDIA video codec libraries")
 elseif( ${ARCHITECTURE} STREQUAL "aarch64" )
+  # On aarch64 (Jetson), use the v4l2 wrapper libraries
+  add_library(nvbuf_fdmap SHARED IMPORTED)
+  add_library(nvbufsurface SHARED IMPORTED)
+  add_library(nvbufsurftransform SHARED IMPORTED)
+  add_library(nvv4l2 SHARED IMPORTED)
+  add_library(cuvidv4l2 SHARED IMPORTED)
+  
   set_property(TARGET nvbuf_fdmap PROPERTY IMPORTED_LOCATION /usr/lib/aarch64-linux-gnu/nvidia/libnvbuf_fdmap.so.1.0.0)
   set_property(TARGET nvbufsurface PROPERTY IMPORTED_LOCATION /usr/lib/aarch64-linux-gnu/nvidia/libnvbufsurface.so)
   set_property(TARGET nvbufsurftransform PROPERTY IMPORTED_LOCATION /usr/lib/aarch64-linux-gnu/nvidia/libnvbufsurftransform.so)
@@ -88,11 +92,6 @@ target_link_libraries(gxf_video_encoder_extension
   CUDA::cuda_driver
   CUDA::cudart
   yaml-cpp
-  cuvidv4l2
-  nvv4l2
-  nvbufsurface
-  nvbuf_fdmap
-  nvbufsurftransform
   isaac_ros_gxf::Core
   isaac_ros_gxf::Cuda
   isaac_ros_gxf::Std
@@ -103,13 +102,37 @@ target_link_libraries(gxf_video_decoder_extension
   CUDA::cuda_driver
   CUDA::cudart
   yaml-cpp
-  cuvidv4l2
-  nvv4l2
-  nvbufsurface
-  nvbuf_fdmap
-  nvbufsurftransform
   isaac_ros_gxf::Core
   isaac_ros_gxf::Std
   isaac_ros_gxf::Cuda
   isaac_ros_gxf::Multimedia
 )
+
+# Link architecture-specific libraries
+if( ${ARCHITECTURE} STREQUAL "x86_64" )
+  target_link_libraries(gxf_video_encoder_extension
+    nvcuvid
+    nvidia_encode
+  )
+  
+  target_link_libraries(gxf_video_decoder_extension
+    nvcuvid
+    nvidia_encode
+  )
+elseif( ${ARCHITECTURE} STREQUAL "aarch64" )
+  target_link_libraries(gxf_video_encoder_extension
+    cuvidv4l2
+    nvv4l2
+    nvbufsurface
+    nvbuf_fdmap
+    nvbufsurftransform
+  )
+  
+  target_link_libraries(gxf_video_decoder_extension
+    cuvidv4l2
+    nvv4l2
+    nvbufsurface
+    nvbuf_fdmap
+    nvbufsurftransform
+  )
+endif()
