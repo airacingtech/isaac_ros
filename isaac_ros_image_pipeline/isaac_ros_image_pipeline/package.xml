@@ -31,9 +31,6 @@ SPDX-License-Identifier: Apache-2.0
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <build_depend>isaac_ros_common</build_depend>
-
-  <depend>isaac_ros_depth_image_proc</depend>
-  <depend>isaac_ros_image_proc</depend>
   <depend>isaac_ros_stereo_image_proc</depend>
 
   <test_depend>ament_lint_auto</test_depend>

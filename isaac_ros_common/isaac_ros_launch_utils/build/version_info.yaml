@@ -1,7 +1,7 @@
-build_datetime: '2025-12-17T16:20:09.029825'
+build_datetime: '2025-12-17T16:38:36.062908'
 git_branch: kevin/compression
-git_commit_date: 2025-12-17 13:45:48 -0800
-git_commit_hash: 6f19950135319410b4c950f2cc0c5e4efd84103b
-git_commit_message: Modify CMAKE file to support x86 for h264 encoder
-git_workspace_dirty: 'Yes'
+git_commit_date: 2025-12-17 16:38:12 -0800
+git_commit_hash: 4bdc3566bb034d85e4939aae183e1836aa1c6c3a
+git_commit_message: Add image_pipeline
+git_workspace_dirty: 'No'
 version: 3.2.10
