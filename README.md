@@ -15,6 +15,17 @@ sudo apt update
 sudo apt install libnvvpi3 vpi3-dev vpi3-samples
 ```
 
+## NVIDIA VIDEO CODEC SDK
+Install the full SDK from [here](https://developer.nvidia.com/video-codec-sdk/download).
+
+```bash
+unzip Video_Codec_SDK_13.0.19.zip
+sudo mkdir -p /usr/local/include/nvcodec
+sudo cp ~/Downloads/Video_Codec_SDK_13.0.19/Interface/*.h /usr/local/include/
+ls /usr/local/include | grep nvEncode
+```
+
+
 ## isaac_ros_gxf
 Please run these commands inside of isaac_ros_gxf.
 ```bash
