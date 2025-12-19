@@ -18,6 +18,7 @@
 
 #include "videoencoder_response.hpp"
 #include "videoencoder_utils.hpp"
+#include "nvenc_encoder.hpp"
 
 #include "gxf/multimedia/camera.hpp"
 
@@ -82,22 +83,29 @@ gxf_result_t VideoEncoderResponse::tick() {
   int32_t bytes_copied;
   dq_index = impl_->ctx->dqbuf_index;
 
-  // Copy Bit stream from v4l2 buffer to output tensor
-  NvBufSurface* surf_ptr = NULL;
   uint8_t* bitstream_buf;
-  surf_ptr = reinterpret_cast<NvBufSurface *>(impl_->ctx->capture_buffers[dq_index].buf_surface);
-
-  if (impl_->ctx->is_cuvid) {
-    bitstream_buf =
-        reinterpret_cast<uint8_t *>(surf_ptr->surfaceList[0].dataPtr);
+  
+  if (impl_->ctx->backend == EncoderBackend::NVENC_API) {
+    // NVENC backend - bitstream is already in nvenc_ctx->output_bitstream
+    bitstream_buf = impl_->ctx->nvenc_ctx->output_bitstream.data();
+    bytes_copied = impl_->ctx->nvenc_ctx->bitstream_size;
   } else {
-    bitstream_buf =
-      reinterpret_cast<uint8_t *>(surf_ptr->surfaceList[0].mappedAddr.addr[0]);
-    NvBufSurfaceSyncForCpu(surf_ptr, 0, 0);
-  }
+    // V4L2 backend - get bitstream from V4L2 buffer
+    NvBufSurface* surf_ptr = NULL;
+    surf_ptr = reinterpret_cast<NvBufSurface *>(impl_->ctx->capture_buffers[dq_index].buf_surface);
 
-  // Bit atream size
-  bytes_copied = (int32_t)impl_->ctx->bitstream_size;
+    if (impl_->ctx->is_cuvid) {
+      bitstream_buf =
+          reinterpret_cast<uint8_t *>(surf_ptr->surfaceList[0].dataPtr);
+    } else {
+      bitstream_buf =
+        reinterpret_cast<uint8_t *>(surf_ptr->surfaceList[0].mappedAddr.addr[0]);
+      NvBufSurfaceSyncForCpu(surf_ptr, 0, 0);
+    }
+
+    // Bit stream size
+    bytes_copied = (int32_t)impl_->ctx->bitstream_size;
+  }
 
   // Cuda memcpy depending on if the gxf output tensor is in host or device
   gxf::MemoryStorageType storage_type = gxf::MemoryStorageType::kHost;
@@ -105,21 +113,32 @@ gxf_result_t VideoEncoderResponse::tick() {
     storage_type = gxf::MemoryStorageType::kDevice;
   // Cuda memcpy depending on if the gxf output tensor is in host or device
   cudaMemcpyKind memcpytype = cudaMemcpyHostToDevice;
-  switch (MemoryStorageType(outbuf_storage_type_.get())) {
-  case MemoryStorageType::kHost: {
-    if (impl_->ctx->is_cuvid)
-      memcpytype = cudaMemcpyDeviceToHost;
-    else
-      memcpytype = cudaMemcpyHostToHost;
-  } break;
-  case MemoryStorageType::kDevice: {
-    if (impl_->ctx->is_cuvid)
-      memcpytype = cudaMemcpyDeviceToDevice;
-    else
+  
+  if (impl_->ctx->backend == EncoderBackend::NVENC_API) {
+    // NVENC bitstream is in host memory
+    if (outbuf_storage_type_.get() == 1) {
       memcpytype = cudaMemcpyHostToDevice;
-  } break;
-  default:
-    return GXF_PARAMETER_OUT_OF_RANGE;
+    } else {
+      memcpytype = cudaMemcpyHostToHost;
+    }
+  } else {
+    // V4L2 backend
+    switch (MemoryStorageType(outbuf_storage_type_.get())) {
+    case MemoryStorageType::kHost: {
+      if (impl_->ctx->is_cuvid)
+        memcpytype = cudaMemcpyDeviceToHost;
+      else
+        memcpytype = cudaMemcpyHostToHost;
+    } break;
+    case MemoryStorageType::kDevice: {
+      if (impl_->ctx->is_cuvid)
+        memcpytype = cudaMemcpyDeviceToDevice;
+      else
+        memcpytype = cudaMemcpyHostToDevice;
+    } break;
+    default:
+      return GXF_PARAMETER_OUT_OF_RANGE;
+    }
   }
 
   // Get output message
@@ -144,25 +163,32 @@ gxf_result_t VideoEncoderResponse::tick() {
                     cudaGetErrorString(cuda_result));
      return GXF_FAILURE;
   }
-  if (!impl_->ctx->is_cuvid) {
-    // Add key frame indicator into output message
-    v4l2_ctrl_videoenc_outputbuf_metadata enc_metadata;
-    if (getMetadata(impl_->ctx, dq_index, enc_metadata) != 0) {
-      GXF_LOG_ERROR("Failed to get v4l2 metadata");
-      return GXF_FAILURE;
-    }
+  
+  if (impl_->ctx->backend == EncoderBackend::V4L2_NVENC) {
+    // V4L2 backend - get metadata and re-enqueue buffer
+    if (!impl_->ctx->is_cuvid) {
+      // Add key frame indicator into output message
+      v4l2_ctrl_videoenc_outputbuf_metadata enc_metadata;
+      if (getMetadata(impl_->ctx, dq_index, enc_metadata) != 0) {
+        GXF_LOG_ERROR("Failed to get v4l2 metadata");
+        return GXF_FAILURE;
+      }
 
-    auto is_key_frame = output_entity.add<bool>("is_key_frame");
-    if (!is_key_frame) {
-      GXF_LOG_ERROR("Failed add key frame indicator into output");
+      auto is_key_frame = output_entity.add<bool>("is_key_frame");
+      if (!is_key_frame) {
+        GXF_LOG_ERROR("Failed add key frame indicator into output");
+        return GXF_FAILURE;
+      }
+      *is_key_frame.value() = enc_metadata.KeyFrame;
+    }
+    ret_val = enqueue_capture_plane_buffer(impl_->ctx, dq_index);
+    if (ret_val) {
+      GXF_LOG_ERROR("Failed to enqueue capture plane");
       return GXF_FAILURE;
     }
-    *is_key_frame.value() = enc_metadata.KeyFrame;
-  }
-  ret_val = enqueue_capture_plane_buffer(impl_->ctx, dq_index);
-  if (ret_val) {
-    GXF_LOG_ERROR("Failed to enqueue capture plane");
-    return GXF_FAILURE;
+  } else {
+    // NVENC backend - no buffer re-enqueue needed
+    // Key frame detection could be added here if NVENC provides it
   }
   impl_->ctx->response_count++;
   if (impl_->ctx->response_count < impl_->ctx->request_count) {

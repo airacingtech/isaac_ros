@@ -22,6 +22,7 @@
 #include "gxf/std/timestamp.hpp"
 #include "videoencoder_request.hpp"
 #include "videoencoder_utils.hpp"
+#include "nvenc_encoder.hpp"
 
 namespace nvidia {
 namespace gxf {
@@ -132,6 +133,39 @@ gxf_result_t VideoEncoderRequest::start() {
     GXF_LOG_ERROR("Failed to get compression settings from parameter");
     return gxf_ret_code;
   }
+
+  // Initialize backend-specific encoder
+  if (impl_->ctx->backend == EncoderBackend::NVENC_API) {
+    // NVENC SDK backend initialization
+    GXF_LOG_INFO("Initializing NVENC SDK backend");
+    
+    if (!impl_->ctx->nvenc_ctx) {
+      GXF_LOG_ERROR("NVENC context not allocated");
+      return GXF_FAILURE;
+    }
+    
+    // Copy parameters to NVENC context
+    impl_->ctx->nvenc_ctx->width = impl_->ctx->width;
+    impl_->ctx->nvenc_ctx->height = impl_->ctx->height;
+    impl_->ctx->nvenc_ctx->bitrate = impl_->ctx->bitrate;
+    impl_->ctx->nvenc_ctx->framerate = framerate_;
+    impl_->ctx->nvenc_ctx->gop_length = impl_->ctx->iframe_interval;
+    impl_->ctx->nvenc_ctx->profile = impl_->ctx->profile;
+    impl_->ctx->nvenc_ctx->level = impl_->ctx->level;
+    impl_->ctx->nvenc_ctx->qp = impl_->ctx->qp;
+    impl_->ctx->nvenc_ctx->rate_control_mode = impl_->ctx->rate_control_mode;
+    
+    NvencEncoder encoder;
+    if (encoder.initialize(impl_->ctx->nvenc_ctx) != 0) {
+      GXF_LOG_ERROR("Failed to initialize NVENC encoder");
+      return GXF_FAILURE;
+    }
+    
+    GXF_LOG_INFO("NVENC SDK backend initialized successfully");
+    return GXF_SUCCESS;
+  }
+  
+  // V4L2 backend initialization (original code)
   // Setting the RC mode and IDR interval parmeters for cuvid case.
   if (impl_->ctx->is_cuvid) {
     if (impl_->ctx->rate_control_mode == 0) {
@@ -312,8 +346,48 @@ gxf_result_t VideoEncoderRequest::prepareOutputEntity(const gxf::Entity & input_
 }
 
 // Function to Queue the input YUV buffer
+gxf_result_t VideoEncoderRequest::encodeWithNvenc(
+                                const gxf::Handle<gxf::VideoBuffer> input_img) {
+  auto input_img_info = input_img->video_frame_info();
+  
+  // For NVENC, we need the input data as a CUDA device pointer in NV12 format
+  void* cuda_input_ptr = const_cast<void*>(static_cast<const void*>(input_img->pointer()));
+  uint32_t pitch = input_img_info.color_planes[0].stride;
+  
+  // Encode the frame
+  NvencEncoder encoder;
+  if (encoder.encodeFrame(impl_->ctx->nvenc_ctx, cuda_input_ptr, pitch) != 0) {
+    GXF_LOG_ERROR("Failed to encode frame with NVENC");
+    return GXF_FAILURE;
+  }
+  
+  // Get bitstream
+  uint8_t* bitstream_data;
+  uint32_t bitstream_size;
+  if (encoder.getBitstream(impl_->ctx->nvenc_ctx, &bitstream_data, &bitstream_size) != 0) {
+    GXF_LOG_ERROR("Failed to get bitstream from NVENC");
+    return GXF_FAILURE;
+  }
+  
+  // Store bitstream info for response codelet
+  impl_->ctx->bitstream_size = bitstream_size;
+  impl_->ctx->dqbuf_index = impl_->ctx->nvenc_ctx->current_buffer_idx;
+  
+  // Trigger response codelet
+  impl_->ctx->scheduling_term->setEventState(nvidia::gxf::AsynchronousEventState::EVENT_DONE);
+  
+  GXF_LOG_DEBUG("NVENC encode completed, bitstream size: %u", bitstream_size);
+  return GXF_SUCCESS;
+}
+
 gxf_result_t VideoEncoderRequest::queueInputYUVBuf(
                                 const gxf::Handle<gxf::VideoBuffer> input_img) {
+  // Route to appropriate backend
+  if (impl_->ctx->backend == EncoderBackend::NVENC_API) {
+    return encodeWithNvenc(input_img);
+  }
+  
+  // V4L2 backend (original implementation)
   auto input_img_info = input_img->video_frame_info();
   int retval = 0;
   int q_index = 0;

@@ -19,6 +19,7 @@
 #include "gxf/std/timestamp.hpp"
 #include "videodecoder_request.hpp"
 #include "videodecoder_utils.hpp"
+#include "cuvid_decoder.hpp"
 
 namespace nvidia {
 namespace gxf {
@@ -184,46 +185,50 @@ gxf_result_t VideoDecoderRequest::start() {
     impl_->ctx->planar = 1;
   }
 
-  /* Set appropriate controls.
-  ** V4L2_CID_MPEG_VIDEO_DISABLE_COMPLETE_FRAME_INPUT control is
-  ** set to false so that application can send chunks of encoded
-  ** data instead of forming complete frames.
-  */
-  retval = set_disable_complete_frame_input(impl_->ctx);
-  if (retval < 0) {
-    GXF_LOG_ERROR("Error in setting control for disable frame input \n");
-    return GXF_FAILURE;
-  }
-
-  /*
-   Video sequences without B-frames i.e., All-Intra frames and IPPP... frames
-   should not have any decoding/display latency.
-   nvcuvid decoder has inherent display latency for some video contents
-   which do not have num_reorder_frames=0 in the VUI.
-   Strictly adhering to the standard, this display latency is expected.
-   In case, the user wants to force zero display latency for such contents, we set
-   V4L2_CID_MPEG_VIDEO_CUDA_LOW_LATENCY control.
-  */
-  if (disableDPB_ != 0) {
-    retval = enable_low_latency_deocde(impl_->ctx);
+  // V4L2 backend-specific initialization (Jetson only)
+  if (impl_->ctx->backend == DecoderBackend::V4L2_NVDEC) {
+    /* Set appropriate controls.
+    ** V4L2_CID_MPEG_VIDEO_DISABLE_COMPLETE_FRAME_INPUT control is
+    ** set to false so that application can send chunks of encoded
+    ** data instead of forming complete frames.
+    */
+    retval = set_disable_complete_frame_input(impl_->ctx);
     if (retval < 0) {
-      GXF_LOG_ERROR("Error in enabling low latency decode \n");
+      GXF_LOG_ERROR("Error in setting control for disable frame input \n");
       return GXF_FAILURE;
     }
-  }
 
-  retval = reqbufs_output_plane(impl_->ctx);
-  if (retval < 0) {
-    GXF_LOG_ERROR("Error in reqbuf on OUTPUT_MPLANE \n");
-    return GXF_FAILURE;
-  }
+    /*
+     Video sequences without B-frames i.e., All-Intra frames and IPPP... frames
+     should not have any decoding/display latency.
+     nvcuvid decoder has inherent display latency for some video contents
+     which do not have num_reorder_frames=0 in the VUI.
+     Strictly adhering to the standard, this display latency is expected.
+     In case, the user wants to force zero display latency for such contents, we set
+     V4L2_CID_MPEG_VIDEO_CUDA_LOW_LATENCY control.
+    */
+    if (disableDPB_ != 0) {
+      retval = enable_low_latency_deocde(impl_->ctx);
+      if (retval < 0) {
+        GXF_LOG_ERROR("Error in enabling low latency decode \n");
+        return GXF_FAILURE;
+      }
+    }
 
-  retval = streamon_plane(impl_->ctx, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
-  if (retval < 0) {
-    GXF_LOG_ERROR("Error in Stream on for OUTPUT_MPLANE \n");
-    return GXF_FAILURE;
+    retval = reqbufs_output_plane(impl_->ctx);
+    if (retval < 0) {
+      GXF_LOG_ERROR("Error in reqbuf on OUTPUT_MPLANE \n");
+      return GXF_FAILURE;
+    }
+
+    retval = streamon_plane(impl_->ctx, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+    if (retval < 0) {
+      GXF_LOG_ERROR("Error in Stream on for OUTPUT_MPLANE \n");
+      return GXF_FAILURE;
+    }
+    GXF_LOG_DEBUG("Stream on for OUTPUT_MPLANE successful \n");
   }
-  GXF_LOG_DEBUG("Stream on for OUTPUT_MPLANE successful \n");
+  // CUVID backend doesn't need these V4L2 controls
 
   return GXF_SUCCESS;
 }
@@ -248,16 +253,34 @@ gxf_result_t VideoDecoderRequest::tick() {
     return gxf_ret_code;
   }
 
+  uint32_t n_video_bytes = input_image.value()->size();
+  uint8_t* p_video = input_image.value()->data<uint8_t>().value();
+
+  GXF_LOG_DEBUG("Input bitstream address: %p and size: %d \n", p_video,
+                n_video_bytes);
+
+  // Route to appropriate backend
+  if (impl_->ctx->backend == DecoderBackend::CUVID_API) {
+    // CUVID backend - direct decode
+    CuvidDecoder decoder;
+    if (decoder.decode(impl_->ctx->cuvid_ctx, p_video, n_video_bytes) != 0) {
+      GXF_LOG_ERROR("Failed to decode frame with CUVID");
+      return GXF_FAILURE;
+    }
+    
+    // For CUVID, the decode is asynchronous and the response codelet
+    // will be triggered by the parser callback via scheduling_term
+    GXF_LOG_DEBUG("CUVID decode submitted, response will be triggered by callback");
+    return GXF_SUCCESS;
+  }
+
+  // V4L2 backend (original implementation)
   if (impl_->ctx->error_in_decode_thread) {
     GXF_LOG_ERROR("Decode Failed");
     return GXF_FAILURE;
   }
-  uint32_t n_video_bytes = input_image.value()->size();
-  uint8_t* p_video = input_image.value()->data<uint8_t>().value();
+  
   int32_t dqbuf_index = 0;
-
-  GXF_LOG_DEBUG("Input bitstream address: %p and size: %d \n", p_video,
-                n_video_bytes);
   if (n_video_bytes) {
     /* Cuda memcpy depending on if the gxf input tensor is in host or device.
     ** For Tegra, destination type is always Host since mapped addr is used.

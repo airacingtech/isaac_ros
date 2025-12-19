@@ -28,6 +28,15 @@
 namespace nvidia {
 namespace gxf {
 
+// Forward declaration
+struct NvencContext;
+
+// Encoder backend type
+enum class EncoderBackend {
+  V4L2_NVENC,   // Jetson hardware encoder via V4L2
+  NVENC_API     // x86 discrete GPU via NVENC SDK
+};
+
 // Struct to hold buffer info
 typedef struct buffer_info_rec {
   void *buf_surface;
@@ -98,6 +107,10 @@ struct nvmpictx {
   int32_t rate_control_mode;
   // Cuda device id
   int32_t device_id;
+  // Backend type
+  EncoderBackend backend;
+  // NVENC context (used when backend == NVENC_API)
+  NvencContext* nvenc_ctx;
 };
 
 
