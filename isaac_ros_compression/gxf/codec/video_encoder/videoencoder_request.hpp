@@ -158,6 +158,8 @@ class VideoEncoderRequest : public gxf::Codelet {
 
   // Queue input buffer
   gxf_result_t queueInputYUVBuf(const gxf::Handle<gxf::VideoBuffer> input_img);
+  // NVENC backend encode function
+  gxf_result_t encodeWithNvenc(const gxf::Handle<gxf::VideoBuffer> input_img);
   // Get input format from parameter
   gxf_result_t checkInputParams();
   // Get input format from parameter

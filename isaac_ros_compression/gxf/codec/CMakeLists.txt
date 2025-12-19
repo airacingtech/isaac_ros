@@ -32,6 +32,8 @@ ament_auto_add_library(gxf_video_encoder_extension SHARED
   video_encoder/videoencoder_context.hpp
   video_encoder/videoencoder_utils.cpp
   video_encoder/videoencoder_utils.hpp
+  video_encoder/nvenc_encoder.cpp
+  video_encoder/nvenc_encoder.hpp
 )
 
 ament_auto_add_library(gxf_video_decoder_extension SHARED
@@ -54,6 +56,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
 target_include_directories(gxf_video_encoder_extension PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/nvbuf_utils
   ${CMAKE_CURRENT_SOURCE_DIR}/libv4l2/include
+  /usr/local/include
 )
 
 target_include_directories(gxf_video_decoder_extension PUBLIC
@@ -88,6 +91,11 @@ elseif( ${ARCHITECTURE} STREQUAL "aarch64" )
   set_property(TARGET cuvidv4l2 PROPERTY IMPORTED_LOCATION /usr/lib/aarch64-linux-gnu/nvidia/libnvcuvidv4l2.so)
 endif()
 
+if( ${ARCHITECTURE} STREQUAL "x86_64" )
+  find_library(V4L2_LIB v4l2 REQUIRED)
+  message(STATUS "Found libv4l2: ${V4L2_LIB}")
+endif()
+
 target_link_libraries(gxf_video_encoder_extension
   CUDA::cuda_driver
   CUDA::cudart
@@ -113,11 +121,15 @@ if( ${ARCHITECTURE} STREQUAL "x86_64" )
   target_link_libraries(gxf_video_encoder_extension
     nvcuvid
     nvidia_encode
+    ${V4L2_LIB}
+    ${CMAKE_DL_LIBS}
+    CUDA::cuda_driver
   )
-  
+
   target_link_libraries(gxf_video_decoder_extension
     nvcuvid
     nvidia_encode
+    ${V4L2_LIB}
   )
 elseif( ${ARCHITECTURE} STREQUAL "aarch64" )
   target_link_libraries(gxf_video_encoder_extension

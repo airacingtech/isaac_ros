@@ -19,6 +19,7 @@
 #include <string>
 #include "videoencoder_context.hpp"
 #include "videoencoder_utils.hpp"
+#include "nvenc_encoder.hpp"
 
 namespace nvidia {
 namespace gxf {
@@ -86,11 +87,18 @@ gxf_result_t VideoEncoderContext::initialize() {
     GXF_LOG_ERROR("Failed to create default encoder context");
     return gxf_ret_code;
   }
-  auto ret_val = pthread_create(&(ctx_->ctx_thread), NULL, encoder_thread_fcn, ctx_);
-  if (ret_val) {
-    GXF_LOG_ERROR("Failed create thred:pthread_create");
-    return GXF_FAILURE;
+  
+  // Only create V4L2 encoder thread for V4L2 backend
+  if (ctx_->backend == EncoderBackend::V4L2_NVENC) {
+    auto ret_val = pthread_create(&(ctx_->ctx_thread), NULL, encoder_thread_fcn, ctx_);
+    if (ret_val) {
+      GXF_LOG_ERROR("Failed create thread:pthread_create");
+      return GXF_FAILURE;
+    }
+  } else {
+    ctx_->ctx_thread = 0;
   }
+  
   return GXF_SUCCESS;
 }
 
@@ -131,121 +139,147 @@ gxf_result_t VideoEncoderContext::initalizeContext() {
     return GXF_FAILURE;
   }
 
-  /* cuvid driver is used for video encode when
-     GPU device is not integrated
-     Tegra device is Thor or next.
+  /* Determine encoder backend:
+     - x86 discrete GPU: NVENC API
+     - Jetson (integrated): V4L2 NVENC
+     - Thor and newer: NVENC API
    */
   ctx_->is_cuvid = 0;
+  ctx_->nvenc_ctx = nullptr;
+  
   if (!prop.integrated) {
+    // x86 discrete GPU - use NVENC SDK
     ctx_->is_cuvid = 1;
+    ctx_->backend = EncoderBackend::NVENC_API;
+    GXF_LOG_INFO("Using x86 discrete GPU - NVENC SDK backend");
   } else {
     if (prop.major >= CUDA_DEVPROP_MAJOR_THOR) {
+      // Thor and newer - use NVENC SDK
       ctx_->is_cuvid = 1;
+      ctx_->backend = EncoderBackend::NVENC_API;
+      GXF_LOG_INFO("Using Thor+ integrated GPU - NVENC SDK backend");
+    } else {
+      // Older Jetson - use V4L2
+      ctx_->backend = EncoderBackend::V4L2_NVENC;
+      GXF_LOG_INFO("Using Jetson integrated GPU - V4L2 backend");
     }
   }
 
-  /* This call creates a new V4L2 Video Encoder object
-   on the device node.
-   device_ = "/dev/null" for WSL platform
-   device_ = "/dev/nvidia0" for cuvid (for system with single GPU).
-   device_ = "/dev/v4l2-nvenc" for tegra
-  */
-  if (isWSL) {
-  GXF_LOG_INFO("WSL Platform, device name :%s", "/dev/null");
-  ctx_->dev_fd = v4l2_open("/dev/null", 0);
-  } else if (ctx_->is_cuvid) {
-    /* For multi GPU systems, device = "/dev/nvidiaX",
-     where X < number of GPUs in the system.
-     Find the device node in the system by searching for /dev/nvidia*
-    */
-    char gpu_device[16];
-    FILE* fd = popen(
-        "ls /dev/nvidia* | grep -m 1 '/dev/nvidia[[:digit:]]' | tr -d [:space:]", "r");
-    if (fd == NULL) {
-      GXF_LOG_ERROR("popen() command failed on the System");
+  // Initialize backend-specific encoder
+  if (ctx_->backend == EncoderBackend::NVENC_API) {
+    // NVENC SDK backend for x86/Thor
+    ctx_->dev_fd = -1;  // Not using V4L2
+    ctx_->nvenc_ctx = new NvencContext();
+    if (!ctx_->nvenc_ctx) {
+      GXF_LOG_ERROR("Failed to allocate NVENC context");
       return GXF_FAILURE;
     }
-    // Read system output from the above command
-    if (fgets(gpu_device, sizeof(gpu_device), fd) == NULL) {
-      GXF_LOG_ERROR("Could not read device node info from System");
+    
+    // Initialize NVENC context with basic parameters
+    ctx_->nvenc_ctx->device_id = ctx_->device_id;
+    ctx_->nvenc_ctx->scheduling_term = ctx_->scheduling_term;
+    ctx_->nvenc_ctx->gxf_context = context();
+    
+    GXF_LOG_INFO("NVENC SDK backend initialized (full config in request)");
+  } else if (ctx_->backend == EncoderBackend::V4L2_NVENC) {
+    // V4L2 backend for Jetson
+    if (isWSL) {
+      GXF_LOG_INFO("WSL Platform, device name: /dev/null");
+      ctx_->dev_fd = v4l2_open("/dev/null", 0);
+    } else {
+      GXF_LOG_INFO("Tegra Device, device name: /dev/v4l2-nvenc");
+      ctx_->dev_fd = v4l2_open("/dev/v4l2-nvenc", 0);
+    }
+    
+    if (ctx_->dev_fd < 0) {
+      GXF_LOG_ERROR("Failed to open V4L2 device: v4l2_open() failed");
       return GXF_FAILURE;
     }
-    pclose(fd);
-    GXF_LOG_INFO("Using GPU Device, device name:%s", gpu_device);
-    ctx_->dev_fd = v4l2_open(gpu_device, 0);
-  } else {
-    GXF_LOG_INFO("Using Tegra Device, device name:%s", "/dev/nvl2-nvenc");
-    ctx_->dev_fd = v4l2_open("/dev/v4l2-nvenc", 0);
   }
-  if (ctx_->dev_fd < 0) {
-    GXF_LOG_ERROR("Failed to open device:v4l2_open() failed");
-    return GXF_FAILURE;
-  }
+  
   return GXF_SUCCESS;
 }
 
 gxf_result_t VideoEncoderContext::deinitialize() {
   int retval = 0;
-  if (!ctx_->is_cuvid) {
-    uint32_t idx;
-    NvBufSurface* nvbuffer;
-    for (idx = 0; idx < ctx_->capture_buffer_count; idx++) {
-      if (ctx_->capture_buffers[idx].buf_surface != nullptr) {
-        nvbuffer = reinterpret_cast<NvBufSurface *>(ctx_->capture_buffers[idx].buf_surface);
-        NvBufSurfaceUnMap(nvbuffer, 0, 0);
-      }
+  
+  if (ctx_->backend == EncoderBackend::NVENC_API) {
+    // NVENC SDK cleanup
+    if (ctx_->nvenc_ctx) {
+      NvencEncoder encoder;
+      encoder.finalize(ctx_->nvenc_ctx);
+      delete ctx_->nvenc_ctx;
+      ctx_->nvenc_ctx = nullptr;
     }
-  }
-
-  ctx_->eos = 1;
-  ctx_->bistreamBuf_queued = 0;
-  if (ctx_->dev_fd != -1) {
-    struct v4l2_encoder_cmd dcmd = {
-        0,
-    };
-    dcmd.cmd = V4L2_ENC_CMD_STOP;
-    retval = v4l2_ioctl(ctx_->dev_fd, VIDIOC_ENCODER_CMD, &dcmd);
-    if (retval < 0) {
-      GXF_LOG_ERROR("Error in stopping the decoder");
-      return GXF_FAILURE;
-    }
-
-    retval = streamoff_plane(ctx_, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
-    if (retval < 0) {
-      GXF_LOG_ERROR("Error in Stream off for OUTPUT_MPLANE");
-      return GXF_FAILURE;
-    }
-
-    retval = streamoff_plane(ctx_, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
-    if (retval < 0) {
-      GXF_LOG_ERROR("Error in Stream off for CAPTURE_MPLANE");
-      return GXF_FAILURE;
-    }
-  }
-  // unmap and unregister the nvbufsurface pointers
-  if (!ctx_->is_cuvid) {
-    uint32_t idx;
-    NvBufSurface* nvbuffer;
-    for (idx = 0; idx < ctx_->output_buffer_count; idx++) {
-      if (ctx_->output_buffers[idx].buf_surface != nullptr) {
-        nvbuffer = reinterpret_cast<NvBufSurface *>(ctx_->output_buffers[idx].buf_surface);
-        NvBufSurfaceUnMap(nvbuffer, 0, 0);
-        cudaHostUnregister(nvbuffer->surfaceList[0].mappedAddr.addr[0]);
-        cudaHostUnregister(nvbuffer->surfaceList[0].mappedAddr.addr[1]);
-        if (ctx_->raw_pixfmt != V4L2_PIX_FMT_NV12M) {
-          cudaHostUnregister(nvbuffer->surfaceList[0].mappedAddr.addr[2]);
+  } else if (ctx_->backend == EncoderBackend::V4L2_NVENC) {
+    // V4L2 cleanup
+    if (!ctx_->is_cuvid) {
+      uint32_t idx;
+      NvBufSurface* nvbuffer;
+      for (idx = 0; idx < ctx_->capture_buffer_count; idx++) {
+        if (ctx_->capture_buffers[idx].buf_surface != nullptr) {
+          nvbuffer = reinterpret_cast<NvBufSurface *>(ctx_->capture_buffers[idx].buf_surface);
+          NvBufSurfaceUnMap(nvbuffer, 0, 0);
         }
       }
     }
-  }
-  if (ctx_->ctx_thread) {
-    auto ret_val = pthread_join(ctx_->ctx_thread, NULL);
-    if (ret_val) {
-      GXF_LOG_ERROR("Failed to terminate thread:pthread_join");
-      return GXF_FAILURE;
+
+    ctx_->eos = 1;
+    ctx_->bistreamBuf_queued = 0;
+    if (ctx_->dev_fd != -1) {
+      struct v4l2_encoder_cmd dcmd = {
+          0,
+      };
+      dcmd.cmd = V4L2_ENC_CMD_STOP;
+      retval = v4l2_ioctl(ctx_->dev_fd, VIDIOC_ENCODER_CMD, &dcmd);
+      if (retval < 0) {
+        GXF_LOG_ERROR("Error in stopping the decoder");
+        return GXF_FAILURE;
+      }
+
+      retval = streamoff_plane(ctx_, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+      if (retval < 0) {
+        GXF_LOG_ERROR("Error in Stream off for OUTPUT_MPLANE");
+        return GXF_FAILURE;
+      }
+
+      retval = streamoff_plane(ctx_, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+      if (retval < 0) {
+        GXF_LOG_ERROR("Error in Stream off for CAPTURE_MPLANE");
+        return GXF_FAILURE;
+      }
+    }
+    
+    // unmap and unregister the nvbufsurface pointers
+    if (!ctx_->is_cuvid) {
+      uint32_t idx;
+      NvBufSurface* nvbuffer;
+      for (idx = 0; idx < ctx_->output_buffer_count; idx++) {
+        if (ctx_->output_buffers[idx].buf_surface != nullptr) {
+          nvbuffer = reinterpret_cast<NvBufSurface *>(ctx_->output_buffers[idx].buf_surface);
+          NvBufSurfaceUnMap(nvbuffer, 0, 0);
+          cudaHostUnregister(nvbuffer->surfaceList[0].mappedAddr.addr[0]);
+          cudaHostUnregister(nvbuffer->surfaceList[0].mappedAddr.addr[1]);
+          if (ctx_->raw_pixfmt != V4L2_PIX_FMT_NV12M) {
+            cudaHostUnregister(nvbuffer->surfaceList[0].mappedAddr.addr[2]);
+          }
+        }
+      }
+    }
+    
+    if (ctx_->ctx_thread != 0) {
+      auto ret_val = pthread_join(ctx_->ctx_thread, NULL);
+      if (ret_val) {
+        GXF_LOG_ERROR("Failed to terminate thread:pthread_join");
+        return GXF_FAILURE;
+      }
+    }
+    
+    if (ctx_->dev_fd != -1) {
+      v4l2_close(ctx_->dev_fd);
     }
   }
-  v4l2_close(ctx_->dev_fd);
+  
   delete ctx_;
   return GXF_SUCCESS;
 }
