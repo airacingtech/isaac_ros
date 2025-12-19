@@ -46,6 +46,8 @@ ament_auto_add_library(gxf_video_decoder_extension SHARED
   video_decoder/videodecoder_context.hpp
   video_decoder/videodecoder_utils.cpp
   video_decoder/videodecoder_utils.hpp
+  video_decoder/cuvid_decoder.cpp
+  video_decoder/cuvid_decoder.hpp
 )
 
 find_package(CUDAToolkit)
@@ -62,6 +64,7 @@ target_include_directories(gxf_video_encoder_extension PUBLIC
 target_include_directories(gxf_video_decoder_extension PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/nvbuf_utils
   ${CMAKE_CURRENT_SOURCE_DIR}/libv4l2/include
+  /usr/local/include
 )
 
 execute_process(COMMAND uname -m COMMAND tr -d '\n' OUTPUT_VARIABLE ARCHITECTURE)
@@ -130,6 +133,8 @@ if( ${ARCHITECTURE} STREQUAL "x86_64" )
     nvcuvid
     nvidia_encode
     ${V4L2_LIB}
+    ${CMAKE_DL_LIBS}
+    CUDA::cuda_driver
   )
 elseif( ${ARCHITECTURE} STREQUAL "aarch64" )
   target_link_libraries(gxf_video_encoder_extension

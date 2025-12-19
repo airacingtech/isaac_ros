@@ -27,6 +27,15 @@
 namespace nvidia {
 namespace gxf {
 
+// Forward declaration
+struct CuvidContext;
+
+// Decoder backend type
+enum class DecoderBackend {
+  V4L2_NVDEC,   // Jetson hardware decoder via V4L2
+  CUVID_API     // x86 discrete GPU via CUVID SDK
+};
+
 typedef struct buffer_info_rec {
   void *buf_surface;
   int32_t buf_fd;
@@ -72,6 +81,11 @@ struct nvmpictx {
   gxf_context_t gxf_context;
   volatile uint32_t cp_dqbuf_available;
   volatile uint32_t cp_dqbuf_index;
+  
+  // Backend type
+  DecoderBackend backend;
+  // CUVID context (used when backend == CUVID_API)
+  CuvidContext* cuvid_ctx;
 };
 
 /// @brief Video decodercontext

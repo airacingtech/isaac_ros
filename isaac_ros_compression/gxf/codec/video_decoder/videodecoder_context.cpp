@@ -19,6 +19,7 @@
 #include <string>
 #include "videodecoder_context.hpp"
 #include "videodecoder_utils.hpp"
+#include "cuvid_decoder.hpp"
 
 namespace nvidia {
 namespace gxf {
@@ -350,41 +351,69 @@ gxf_result_t VideoDecoderContext::initialize() {
     }
   }
 
-  /* The call creates a new V4L2 Video Encoder object
-   on the device node.
-   device_ = ""/dev/null"  for WSL platform
-   device_ = "/dev/nvidia0" for cuvid (for single GPU system).
-   device_ = "/dev/v4l2-nvdec" for tegra
-  */
-  if (isWSL) {
-    GXF_LOG_INFO("WSL Platform, device name :%s", "/dev/null");
-    ctx_->dev_fd = v4l2_open("/dev/null", 0);
-  } else if (ctx_->is_cuvid) {
-    /* For multi GPU systems, device = "/dev/nvidiaX",
-     where X < number of GPUs in the system.
-     Find the device node(X) in the system by searching for /dev/nvidia*
-    */
-    char gpu_device[16];
-    FILE* fd = popen(
-        "ls /dev/nvidia* | grep -m 1 '/dev/nvidia[[:digit:]]' | tr -d [:space:]", "r");
-    if (fd == NULL) {
-      GXF_LOG_ERROR("popen() command failed on the System");
-      return GXF_FAILURE;
-    }
-    // Read system output from the above command
-    if (fgets(gpu_device, sizeof(gpu_device), fd) == NULL) {
-      GXF_LOG_ERROR("Could not read device node info from System");
-      return GXF_FAILURE;
-    }
-    pclose(fd);
-    GXF_LOG_INFO("Using GPU Device, device name :%s", gpu_device);
-    ctx_->dev_fd = v4l2_open(gpu_device, 0);
+  /* Determine decoder backend:
+     - x86 discrete GPU: CUVID API
+     - Jetson (integrated): V4L2 NVDEC
+     - Thor and newer: CUVID API
+   */
+  ctx_->cuvid_ctx = nullptr;
+  
+  if (!prop.integrated) {
+    // x86 discrete GPU - use CUVID SDK
+    ctx_->is_cuvid = 1;
+    ctx_->backend = DecoderBackend::CUVID_API;
+    GXF_LOG_INFO("Using x86 discrete GPU - CUVID SDK backend");
   } else {
-    GXF_LOG_INFO("Using Tegra Device, device name :%s", "/dev/v4l2-nvdec");
+    if (prop.major >= CUDA_DEVPROP_MAJOR_THOR) {
+      // Thor and newer - use CUVID SDK
+      ctx_->is_cuvid = 1;
+      ctx_->backend = DecoderBackend::CUVID_API;
+      GXF_LOG_INFO("Using Thor+ integrated GPU - CUVID SDK backend");
+    } else {
+      // Older Jetson - use V4L2
+      ctx_->backend = DecoderBackend::V4L2_NVDEC;
+      GXF_LOG_INFO("Using Jetson integrated GPU - V4L2 backend");
+    }
+  }
+
+  // Initialize backend-specific decoder
+  if (ctx_->backend == DecoderBackend::CUVID_API) {
+    // CUVID SDK backend for x86/Thor
+    ctx_->dev_fd = -1;  // Not using V4L2
+    ctx_->cuvid_ctx = new CuvidContext();
+    if (!ctx_->cuvid_ctx) {
+      GXF_LOG_ERROR("Failed to allocate CUVID context");
+      return GXF_FAILURE;
+    }
+    
+    // Initialize CUVID context
+    ctx_->cuvid_ctx->device_id = ctx_->device_id;
+    ctx_->cuvid_ctx->scheduling_term = response_scheduling_term_.try_get().value();
+    ctx_->cuvid_ctx->gxf_context = context();
+    ctx_->cuvid_ctx->output_entity_queue = &ctx_->output_entity_queue;  // Share queue with parent
+    ctx_->cuvid_ctx->parent_ctx = ctx_;
+    
+    CuvidDecoder decoder;
+    if (decoder.initialize(ctx_->cuvid_ctx) != 0) {
+      GXF_LOG_ERROR("Failed to initialize CUVID decoder");
+      return GXF_FAILURE;
+    }
+    
+    GXF_LOG_INFO("CUVID SDK backend initialized successfully");
+    return GXF_SUCCESS;
+  }
+  
+  // V4L2 backend for Jetson
+  if (isWSL) {
+    GXF_LOG_INFO("WSL Platform, device name: /dev/null");
+    ctx_->dev_fd = v4l2_open("/dev/null", 0);
+  } else {
+    GXF_LOG_INFO("Tegra Device, device name: /dev/v4l2-nvdec");
     ctx_->dev_fd = v4l2_open("/dev/v4l2-nvdec", 0);
   }
+  
   if (ctx_->dev_fd < 0) {
-    GXF_LOG_ERROR("Failed to open decoder");
+    GXF_LOG_ERROR("Failed to open V4L2 decoder");
     return GXF_FAILURE;
   }
 
@@ -415,7 +444,10 @@ gxf_result_t VideoDecoderContext::initialize() {
     }
   }
 
-  pthread_create(&(ctx_->ctx_thread), NULL, decoder_thread_func, ctx_);
+  // Only create decoder thread for V4L2 backend
+  if (ctx_->backend == DecoderBackend::V4L2_NVDEC) {
+    pthread_create(&(ctx_->ctx_thread), NULL, decoder_thread_func, ctx_);
+  }
 
   return GXF_SUCCESS;
 }
@@ -424,6 +456,20 @@ gxf_result_t VideoDecoderContext::deinitialize() {
   GXF_LOG_DEBUG("Enter deinitialize function");
 
   int32_t retval = 0;
+  
+  if (ctx_->backend == DecoderBackend::CUVID_API) {
+    // CUVID SDK cleanup
+    if (ctx_->cuvid_ctx) {
+      CuvidDecoder decoder;
+      decoder.finalize(ctx_->cuvid_ctx);
+      delete ctx_->cuvid_ctx;
+      ctx_->cuvid_ctx = nullptr;
+    }
+    delete ctx_;
+    return GXF_SUCCESS;
+  }
+  
+  // V4L2 backend cleanup
   struct v4l2_decoder_cmd dcmd = {
       0,
   };

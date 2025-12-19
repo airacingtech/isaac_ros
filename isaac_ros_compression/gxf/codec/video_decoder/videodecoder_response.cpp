@@ -17,9 +17,13 @@
 
 #include "nvbufsurftransform.h"
 
+#include <nvcuvid.h>
+#include <cuda.h>
+
 #include "gxf/std/timestamp.hpp"
 #include "videodecoder_response.hpp"
 #include "videodecoder_utils.hpp"
+#include "cuvid_decoder.hpp"
 
 namespace nvidia {
 namespace gxf {
@@ -78,6 +82,51 @@ gxf_result_t VideoDecoderResponse::start() {
 gxf_result_t VideoDecoderResponse::tick() {
   GXF_LOG_DEBUG("VideoDecoderResponse:Tick started");
 
+  // For CUVID backend, use synchronous path
+  if (impl_->ctx->backend == DecoderBackend::CUVID_API) {
+    // Check if we actually have a decoded frame available
+    if (!impl_->ctx->cuvid_ctx || !impl_->ctx->cuvid_ctx->frame_available) {
+      GXF_LOG_WARNING("Response tick called but no frame available, resetting to WAIT");
+      if (impl_->ctx->cuvid_ctx && impl_->ctx->cuvid_ctx->scheduling_term) {
+        impl_->ctx->cuvid_ctx->scheduling_term->setEventState(
+            nvidia::gxf::AsynchronousEventState::WAIT);
+      }
+      return GXF_SUCCESS;  // Not an error, just premature tick
+    }
+
+    // Get the output entity from the queue
+    if (impl_->ctx->output_entity_queue.empty()) {
+      GXF_LOG_ERROR("Output entity queue is empty but frame available");
+      return GXF_FAILURE;
+    }
+
+    gxf::Entity output_entity = impl_->ctx->output_entity_queue.front();
+    impl_->ctx->output_entity_queue.pop();
+
+    auto output_video_buffer = output_entity.get<nvidia::gxf::VideoBuffer>();
+    if (!output_video_buffer) {
+      GXF_LOG_ERROR("Failed to get output VideoBuffer");
+      return GXF_FAILURE;
+    }
+    decoded_frame_ = output_video_buffer.value();
+    memory_pool_ = pool_.get();
+
+    // Copy output YUV buffer from CUVID decoder
+    if (copyYUVFrame() != GXF_SUCCESS) {
+      GXF_LOG_ERROR("Error in copying output YUV from CUVID");
+      return GXF_FAILURE;
+    }
+
+    // Reset event state back to WAIT for next frame
+    if (impl_->ctx->cuvid_ctx && impl_->ctx->cuvid_ctx->scheduling_term) {
+      impl_->ctx->cuvid_ctx->scheduling_term->setEventState(
+          nvidia::gxf::AsynchronousEventState::WAIT);
+    }
+
+    return gxf::ToResultCode(output_transmitter_->publish(output_entity));
+  }
+
+  // V4L2 backend path (Jetson)
   uint64_t output_timestamp;
   uint64_t dqbuf_timestamp =
     impl_->ctx->output_timestamp.tv_sec * static_cast<uint64_t>(1e6) +
@@ -138,6 +187,102 @@ gxf_result_t VideoDecoderResponse::stop() {
 
 gxf_result_t VideoDecoderResponse::copyYUVFrame() {
   GXF_LOG_DEBUG("Copy YUV start \n");
+  
+  // CUVID backend-specific path
+  if (impl_->ctx->backend == DecoderBackend::CUVID_API) {
+    // Lock for thread safety
+    std::lock_guard<std::mutex> lock(impl_->ctx->cuvid_ctx->decoder_mutex);
+    
+    // Check if frame is available
+    if (!impl_->ctx->cuvid_ctx->frame_available) {
+      // Frame already consumed or not yet ready - just return success
+      // This can happen if multiple EVENT_DONE were queued
+      GXF_LOG_DEBUG("No frame available yet, returning (likely already processed)");
+      return GXF_SUCCESS;
+    }
+    
+    // Ensure CUDA context is active for memcpy
+    CUcontext current_ctx;
+    cuCtxGetCurrent(&current_ctx);
+    if (current_ctx != impl_->ctx->cuvid_ctx->cu_context) {
+      cuCtxPushCurrent(impl_->ctx->cuvid_ctx->cu_context);
+    }
+    
+    constexpr auto surface_layout = gxf::SurfaceLayout::GXF_SURFACE_LAYOUT_PITCH_LINEAR;
+    auto storage_type = gxf::MemoryStorageType::kDevice;
+    cudaMemcpyKind memcpytype = cudaMemcpyDeviceToDevice;
+    
+    if (MemoryStorageType(outbuf_storage_type_.get()) == MemoryStorageType::kHost) {
+      storage_type = gxf::MemoryStorageType::kHost;
+      memcpytype = cudaMemcpyDeviceToHost;
+    }
+    
+    // Allocate output buffer with NV12 format (default for CUVID)
+    GXF_LOG_DEBUG("CUVID: Resizing to NV12 %dx%d, storage=%d", 
+                  impl_->ctx->video_width, impl_->ctx->video_height, (int)storage_type);
+    
+    auto gxf_result = decoded_frame_->resize<gxf::VideoFormat::GXF_VIDEO_FORMAT_NV12>(
+        impl_->ctx->video_width, impl_->ctx->video_height, surface_layout,
+        storage_type, memory_pool_);
+    
+    if (ToResultCode(gxf_result) != GXF_SUCCESS) {
+      GXF_LOG_ERROR("Failed to resize video buffer for CUVID: width=%d height=%d", 
+                    impl_->ctx->video_width, impl_->ctx->video_height);
+      return GXF_FAILURE;
+    }
+    
+    auto decoded_frame_info = decoded_frame_->video_frame_info();
+    GXF_LOG_DEBUG("CUVID: Copying decoded frame %dx%d", 
+                  impl_->ctx->video_width, impl_->ctx->video_height);
+    
+    // Copy Y plane
+    cudaError_t result = cudaMemcpy2D(
+        decoded_frame_->pointer(),
+        decoded_frame_info.color_planes[0].stride,
+        (void*)impl_->ctx->cuvid_ctx->decoded_frame,
+        impl_->ctx->cuvid_ctx->decoded_pitch,
+        impl_->ctx->video_width,  // Width in bytes for Y plane
+        impl_->ctx->video_height,
+        memcpytype);
+    
+    if (result != cudaSuccess) {
+      GXF_LOG_ERROR("Failed to copy Y plane from CUVID: %s", cudaGetErrorString(result));
+      return GXF_FAILURE;
+    }
+    
+    // Copy UV plane (interleaved for NV12)
+    result = cudaMemcpy2D(
+        decoded_frame_->pointer() + decoded_frame_info.color_planes[0].size,
+        decoded_frame_info.color_planes[1].stride,
+        (void*)(impl_->ctx->cuvid_ctx->decoded_frame + 
+                impl_->ctx->cuvid_ctx->decoded_pitch * impl_->ctx->video_height),
+        impl_->ctx->cuvid_ctx->decoded_pitch,
+        impl_->ctx->video_width,  // Width in bytes for UV plane (2 components * width/2)
+        impl_->ctx->video_height / 2,
+        memcpytype);
+    
+    if (result != cudaSuccess) {
+      GXF_LOG_ERROR("Failed to copy UV plane from CUVID: %s", cudaGetErrorString(result));
+      return GXF_FAILURE;
+    }
+    
+    // Unmap the video frame after copying
+    CUresult cu_result = cuvidUnmapVideoFrame(impl_->ctx->cuvid_ctx->decoder, 
+                                              impl_->ctx->cuvid_ctx->decoded_frame);
+    if (cu_result != CUDA_SUCCESS) {
+      const char* err_str;
+      cuGetErrorString(cu_result, &err_str);
+      GXF_LOG_WARNING("Failed to unmap video frame: %s", err_str);
+    }
+    
+    // Reset frame availability flag
+    impl_->ctx->cuvid_ctx->frame_available = false;
+    
+    GXF_LOG_DEBUG("CUVID YUV copy done \n");
+    return GXF_SUCCESS;
+  }
+  
+  // V4L2 backend path
   constexpr auto surface_layout =
       gxf::SurfaceLayout::GXF_SURFACE_LAYOUT_PITCH_LINEAR;
   auto storage_type = gxf::MemoryStorageType::kDevice;
