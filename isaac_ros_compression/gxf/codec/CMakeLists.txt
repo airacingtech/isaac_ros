@@ -94,10 +94,10 @@ elseif( ${ARCHITECTURE} STREQUAL "aarch64" )
   set_property(TARGET cuvidv4l2 PROPERTY IMPORTED_LOCATION /usr/lib/aarch64-linux-gnu/nvidia/libnvcuvidv4l2.so)
 endif()
 
-if( ${ARCHITECTURE} STREQUAL "x86_64" )
-  find_library(V4L2_LIB v4l2 REQUIRED)
-  message(STATUS "Found libv4l2: ${V4L2_LIB}")
-endif()
+#if( ${ARCHITECTURE} STREQUAL "x86_64" )
+#  find_library(V4L2_LIB v4l2 REQUIRED)
+#  message(STATUS "Found libv4l2: ${V4L2_LIB}")
+#endif()
 
 target_link_libraries(gxf_video_encoder_extension
   CUDA::cuda_driver
@@ -124,7 +124,7 @@ if( ${ARCHITECTURE} STREQUAL "x86_64" )
   target_link_libraries(gxf_video_encoder_extension
     nvcuvid
     nvidia_encode
-    ${V4L2_LIB}
+    #${V4L2_LIB}
     ${CMAKE_DL_LIBS}
     CUDA::cuda_driver
   )
@@ -132,7 +132,7 @@ if( ${ARCHITECTURE} STREQUAL "x86_64" )
   target_link_libraries(gxf_video_decoder_extension
     nvcuvid
     nvidia_encode
-    ${V4L2_LIB}
+    #${V4L2_LIB}
     ${CMAKE_DL_LIBS}
     CUDA::cuda_driver
   )
