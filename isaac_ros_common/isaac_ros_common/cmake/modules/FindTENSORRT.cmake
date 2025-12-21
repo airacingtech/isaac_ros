@@ -36,9 +36,29 @@ find_path(TENSORRT_INCLUDE_DIR NAMES NvInferVersion.h REQUIRED)
 mark_as_advanced(TENSORRT_INCLUDE_DIR)
 
 # Find version
+#function(read_version name str)
+#    string(REGEX MATCH "${name} ([0-9]+)" _ "${str}")
+#    set(${name} ${CMAKE_MATCH_1} PARENT_SCOPE)
+#endfunction()
+
 function(read_version name str)
+    # Try numeric match first (TensorRT <= 8)
     string(REGEX MATCH "${name} ([0-9]+)" _ "${str}")
-    set(${name} ${CMAKE_MATCH_1} PARENT_SCOPE)
+    if(CMAKE_MATCH_1)
+        set(${name} ${CMAKE_MATCH_1} PARENT_SCOPE)
+        return()
+    endif()
+
+    # TensorRT 10+: NV_TENSORRT_MAJOR is defined as TRT_MAJOR_ENTERPRISE
+    if("${name}" STREQUAL "NV_TENSORRT_MAJOR")
+        if("${str}" MATCHES "TRT_MAJOR_ENTERPRISE")
+            set(${name} 10 PARENT_SCOPE)
+            return()
+        endif()
+    endif()
+
+    # Fallback
+    set(${name} 0 PARENT_SCOPE)
 endfunction()
 
 file(READ "${TENSORRT_INCLUDE_DIR}/NvInferVersion.h" _TRT_VERSION_FILE)
