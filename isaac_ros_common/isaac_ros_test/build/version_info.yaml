@@ -1,0 +1,7 @@
+build_datetime: '2025-12-21T15:03:56.322084'
+git_branch: kevin/compression
+git_commit_date: 2025-12-21 15:45:53 -0800
+git_commit_hash: 3738d67f338fff49217ca237f80338fe0e909a31
+git_commit_message: Add isaac_ros_dnn_inference
+git_workspace_dirty: 'Yes'
+version: 4.0.0

@@ -36,36 +36,16 @@ find_path(TENSORRT_INCLUDE_DIR NAMES NvInferVersion.h REQUIRED)
 mark_as_advanced(TENSORRT_INCLUDE_DIR)
 
 # Find version
-#function(read_version name str)
-#    string(REGEX MATCH "${name} ([0-9]+)" _ "${str}")
-#    set(${name} ${CMAKE_MATCH_1} PARENT_SCOPE)
-#endfunction()
-
 function(read_version name str)
-    # Try numeric match first (TensorRT <= 8)
     string(REGEX MATCH "${name} ([0-9]+)" _ "${str}")
-    if(CMAKE_MATCH_1)
-        set(${name} ${CMAKE_MATCH_1} PARENT_SCOPE)
-        return()
-    endif()
-
-    # TensorRT 10+: NV_TENSORRT_MAJOR is defined as TRT_MAJOR_ENTERPRISE
-    if("${name}" STREQUAL "NV_TENSORRT_MAJOR")
-        if("${str}" MATCHES "TRT_MAJOR_ENTERPRISE")
-            set(${name} 10 PARENT_SCOPE)
-            return()
-        endif()
-    endif()
-
-    # Fallback
-    set(${name} 0 PARENT_SCOPE)
+    set(${name} ${CMAKE_MATCH_1} PARENT_SCOPE)
 endfunction()
 
 file(READ "${TENSORRT_INCLUDE_DIR}/NvInferVersion.h" _TRT_VERSION_FILE)
-read_version(NV_TENSORRT_MAJOR "${_TRT_VERSION_FILE}")
-read_version(NV_TENSORRT_MINOR "${_TRT_VERSION_FILE}")
-read_version(NV_TENSORRT_PATCH "${_TRT_VERSION_FILE}")
-set(TENSORRT_VERSION "${NV_TENSORRT_MAJOR}.${NV_TENSORRT_MINOR}.${NV_TENSORRT_PATCH}")
+read_version(TRT_MAJOR_ENTERPRISE "${_TRT_VERSION_FILE}")
+read_version(TRT_MINOR_ENTERPRISE "${_TRT_VERSION_FILE}")
+read_version(TRT_PATCH_ENTERPRISE "${_TRT_VERSION_FILE}")
+set(TENSORRT_VERSION "${TRT_MAJOR_ENTERPRISE}.${TRT_MINOR_ENTERPRISE}.${TRT_PATCH_ENTERPRISE}")
 unset(_TRT_VERSION_FILE)
 
 # Find libs, and create the imported target
