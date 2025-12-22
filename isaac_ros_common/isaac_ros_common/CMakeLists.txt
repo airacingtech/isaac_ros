@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,9 +21,12 @@ project(isaac_ros_common LANGUAGES C CXX)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
+enable_language(CUDA)
 
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
+
+find_package(CUDAToolkit)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/isaac_ros_common-extras.cmake)
 
@@ -32,10 +35,27 @@ find_package(vpi REQUIRED)
 
 # vpi utilities
 ament_auto_add_library(${PROJECT_NAME} SHARED
+  src/cuda_stream.cpp
   src/vpi_utilities.cpp
   src/qos.cpp
 )
-target_link_libraries(${PROJECT_NAME} vpi)
+target_link_libraries(${PROJECT_NAME} vpi CUDA::cudart)
+
+# NVTX
+option(USE_NVTX "Enable NVTX markers for improved profiling (if available)" ON)
+if(USE_NVTX)
+    add_definitions(-DUSE_NVTX)
+    find_library(NVTX_LIB nvToolsExt
+        PATHS
+          /usr/lib/x86_64-linux-gnu
+          ${CUDA_TOOLKIT_ROOT_DIR}/lib64
+    )
+    if(NVTX_LIB)
+        target_link_libraries(${PROJECT_NAME} ${NVTX_LIB})
+    else()
+        message(WARNING "NVTX requested but libnvToolsExt not found, disabling NVTX")
+    endif()
+endif()
 
 # Register cmake in install.
 ament_index_register_resource(isaac_ros_common_cmake_path CONTENT

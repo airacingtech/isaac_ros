@@ -1,7 +1,7 @@
-build_datetime: '2025-12-19T12:52:42.775411'
+build_datetime: '2025-12-21T16:57:38.110060'
 git_branch: kevin/compression
-git_commit_date: 2025-12-18 20:16:34 -0800
-git_commit_hash: 511b3ea570cbe65ca046e9330a3d44044ca89d26
-git_commit_message: Add X86 NVENC backend
+git_commit_date: 2025-12-21 15:04:35 -1000
+git_commit_hash: e8ff2c4541d744cf374537bb725bdbdcc67a7d80
+git_commit_message: isaac_ros_common
 git_workspace_dirty: 'Yes'
-version: 3.2.10
+version: 4.0.0

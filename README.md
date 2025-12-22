@@ -15,16 +15,26 @@ sudo apt update
 sudo apt install libnvvpi3 vpi3-dev vpi3-samples
 ```
 
-## NVIDIA VIDEO CODEC SDK
-Install the full SDK from [here](https://developer.nvidia.com/video-codec-sdk/download).
-
+## TensorRT 10
+You need TensorRT 10.x minimum. Please install it [here](https://developer.download.nvidia.com/compute/tensorrt/10.14.1/local_installers/nv-tensorrt-local-repo-ubuntu2204-10.14.1-cuda-12.9_1.0-1_amd64.deb)
 ```bash
-unzip Video_Codec_SDK_13.0.19.zip
-sudo mkdir -p /usr/local/include/nvcodec
-sudo cp ~/Downloads/Video_Codec_SDK_13.0.19/Interface/*.h /usr/local/include/
-ls /usr/local/include | grep nvEncode
+sudo apt install \
+  tensorrt \
+  tensorrt-dev \
+  libnvinfer-plugin-dev \
+  libnvonnxparsers-dev
+```
+## libnvTools
+Please install the legacy NVTX.
+```bash
+sudo apt install libnvtoolsext1
+sudo ln -s \
+  /usr/lib/x86_64-linux-gnu/libnvToolsExt.so.1 \
+  /usr/lib/x86_64-linux-gnu/libnvToolsExt.so
 ```
 
+## CVCUDA
+Please install the [development](https://github.com/CVCUDA/CV-CUDA/releases/download/v0.16.0/cvcuda-dev-0.16.0-cuda12-x86_64-linux.deb) and [library](https://github.com/CVCUDA/CV-CUDA/releases/download/v0.16.0/cvcuda-lib-0.16.0-cuda12-x86_64-linux.deb) dependencies.
 
 ## isaac_ros_gxf
 Please run these commands inside of isaac_ros_gxf.
