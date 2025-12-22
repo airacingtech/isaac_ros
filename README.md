@@ -33,6 +33,11 @@ sudo ln -s \
   /usr/lib/x86_64-linux-gnu/libnvToolsExt.so
 ```
 
+## CVCUDA
+Please install these dependencies.
+[dev](https://github.com/CVCUDA/CV-CUDA/releases/download/v0.16.0/cvcuda-dev-0.16.0-cuda12-x86_64-linux.deb)
+[lib](https://github.com/CVCUDA/CV-CUDA/releases/download/v0.16.0/cvcuda-lib-0.16.0-cuda12-x86_64-linux.deb)
+
 ## isaac_ros_gxf
 Please run these commands inside of isaac_ros_gxf.
 ```bash
