@@ -1,7 +1,7 @@
-build_datetime: '2025-12-21T16:57:38.110060'
+build_datetime: '2025-12-22T12:19:56.618444'
 git_branch: kevin/compression
-git_commit_date: 2025-12-21 15:04:35 -1000
-git_commit_hash: e8ff2c4541d744cf374537bb725bdbdcc67a7d80
-git_commit_message: isaac_ros_common
+git_commit_date: 2025-12-21 17:00:36 -1000
+git_commit_hash: 3292dea3b2d1617d78d84911d0cfd65a493e3687
+git_commit_message: object_detection
 git_workspace_dirty: 'Yes'
 version: 4.0.0
