@@ -15,6 +15,15 @@ sudo apt update
 sudo apt install libnvvpi3 vpi3-dev vpi3-samples
 ```
 
+## TensorRT 10
+You need TensorRT 10.x minimum. Please install it [here](https://developer.download.nvidia.com/compute/tensorrt/10.14.1/local_installers/nv-tensorrt-local-repo-ubuntu2204-10.14.1-cuda-12.9_1.0-1_amd64.deb)
+```bash
+sudo apt install \
+  tensorrt \
+  tensorrt-dev \
+  libnvinfer-plugin-dev \
+  libnvonnxparsers-dev
+```
 ## libnvTools
 Please install the legacy NVTX.
 ```bash
