@@ -15,6 +15,15 @@ sudo apt update
 sudo apt install libnvvpi3 vpi3-dev vpi3-samples
 ```
 
+## libnvTools
+Please install the legacy NVTX.
+```bash
+sudo apt install libnvtoolsext1
+sudo ln -s \
+  /usr/lib/x86_64-linux-gnu/libnvToolsExt.so.1 \
+  /usr/lib/x86_64-linux-gnu/libnvToolsExt.so
+```
+
 ## isaac_ros_gxf
 Please run these commands inside of isaac_ros_gxf.
 ```bash
