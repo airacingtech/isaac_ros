@@ -44,6 +44,23 @@ git lfs install
 git lfs pull
 ```
 
+## tensorrt cmake
+Please run these commands.
+```bash
+git clone https://github.com/tier4/tensorrt_cmake_module.git
+cd tensorrt_cmake_module
+cmake -S . -B build
+sudo cmake --install build
+```
+
+## cudnn cmake
+```bash
+git clone https://github.com/tier4/cudnn_cmake_module-release.git
+cd cudnn_cmake_module-release
+cmake -S . -B build
+sudo cmake --install build
+```
+
 ## Redundant type specialization
 There is a redundant type specialization within iron that conflicts with GCC type specialization. This can be fixed easily by commenting out the generic type specialization.
 ```cpp

@@ -29,6 +29,7 @@ find_package(vision_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 ament_auto_find_build_dependencies()
@@ -36,14 +37,15 @@ find_package(ament_cmake_python REQUIRED)
 
 # NVTX
 option(USE_NVTX "Enable NVTX markers for improved profiling (if available)" ON)
-if(USE_NVTX)
-    add_definitions(-DUSE_NVTX)
-    link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
-    link_libraries("CUDA::nvtx3")
+
+if(NOT TARGET CUDA::nvtx3)
+  add_library(CUDA::nvtx3 SHARED IMPORTED)
+  set_target_properties(CUDA::nvtx3 PROPERTIES
+    IMPORTED_LOCATION "/usr/lib/x86_64-linux-gnu/libnvToolsExt.so.1"
+    INTERFACE_INCLUDE_DIRECTORIES "/usr/include"
+  )
 endif()
 
-# Ensure CUDA imported targets (e.g., CUDA::nvtx3) are available
-find_package(CUDAToolkit REQUIRED)
 
 # yolov8 Decoder node
 ament_auto_add_library(yolov8_decoder_node SHARED src/yolov8_decoder_node.cpp)
