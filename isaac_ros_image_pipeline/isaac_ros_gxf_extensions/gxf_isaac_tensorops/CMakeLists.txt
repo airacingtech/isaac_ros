@@ -122,6 +122,14 @@ ament_auto_add_library(${PROJECT_NAME} SHARED
   gxf/extensions/tensorops/core/Traits.h
 )
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/gxf")
+
+if (CUDAToolkit_VERSION VERSION_GREATER_EQUAL 13)
+  message(STATUS "CUDA >= 13 detected, adding CCCL include path")
+  target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CUDAToolkit_INCLUDE_DIRS}/cccl
+  )
+endif()
+
 target_link_libraries(${PROJECT_NAME}
   CUDA::cudart
   CUDA::nppc

@@ -27,13 +27,24 @@ install(PROGRAMS scripts/diagnostic_viewer.py DESTINATION lib/${PROJECT_NAME})
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
-# NVTX
+# NVTX (CUDA 12.9+ / 13.x: NVTX3 is header-only; libnvToolsExt may not exist)
 option(USE_NVTX "Enable NVTX markers for improved profiling (if available)" ON)
+
 if(USE_NVTX)
-    add_definitions(-DUSE_NVTX)
-    link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
-    link_libraries("nvToolsExt")
+  add_definitions(-DUSE_NVTX)
+
+  find_package(CUDAToolkit REQUIRED)
+
+  # Header-only NVTX3 target (no libnvToolsExt.so required)
+  if(NOT TARGET CUDA::nvtx3)
+    add_library(CUDA::nvtx3 INTERFACE IMPORTED)
+    target_include_directories(CUDA::nvtx3 SYSTEM INTERFACE
+      "${CUDAToolkit_INCLUDE_DIR}"
+    )
+    target_link_libraries(CUDA::nvtx3 INTERFACE ${CMAKE_DL_LIBS})
+  endif()
 endif()
+
 
 # cuVSLAM and cuApriltags (register paths and install)
 
@@ -93,6 +104,11 @@ target_link_libraries(${PROJECT_NAME}
   vpi
   yaml-cpp
 )
+
+if(USE_NVTX)
+  target_link_libraries(${PROJECT_NAME} CUDA::nvtx3)
+endif()
+
 set_target_properties(${PROJECT_NAME} PROPERTIES
   BUILD_WITH_INSTALL_RPATH TRUE
   BUILD_RPATH_USE_ORIGIN TRUE

@@ -27,11 +27,19 @@ ament_auto_find_build_dependencies()
 
 # NVTX
 option(USE_NVTX "Enable NVTX markers for improved profiling (if available)" ON)
+
 if(USE_NVTX)
-    add_definitions(-DUSE_NVTX)
-    link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
-    link_libraries("nvToolsExt")
+  find_package(CUDAToolkit REQUIRED)
+
+  if(NOT TARGET CUDA::nvtx3)
+    add_library(CUDA::nvtx3 INTERFACE IMPORTED)
+    target_include_directories(CUDA::nvtx3 SYSTEM INTERFACE
+      "${CUDAToolkit_INCLUDE_DIRS}"
+    )
+    target_link_libraries(CUDA::nvtx3 INTERFACE ${CMAKE_DL_LIBS})
+  endif()
 endif()
+
 
 # Dependencies
 find_package(vpi REQUIRED)
@@ -43,6 +51,12 @@ src/nitros_image.cpp
 src/nitros_image_builder.cpp
 src/nitros_image_view.cpp
 )
+
+if(USE_NVTX)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE USE_NVTX)
+  target_link_libraries(${PROJECT_NAME} CUDA::nvtx3)
+endif()
+
 target_link_libraries(${PROJECT_NAME}
   vpi
   yaml-cpp

@@ -21,6 +21,7 @@ project(isaac_ros_gxf)
 execute_process(COMMAND uname -m COMMAND tr -d '\n' OUTPUT_VARIABLE ARCHITECTURE)
 message( STATUS "Architecture: ${ARCHITECTURE}" )
 
+find_package(CUDAToolkit)
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
@@ -34,11 +35,11 @@ install(
 
 # Install extensions directory
 if( ${ARCHITECTURE} STREQUAL "x86_64" )
-  install(DIRECTORY gxf/core/lib/gxf_x86_64_cuda_12_6/ DESTINATION share/${PROJECT_NAME}/gxf/lib)
-  install(FILES gxf/core/lib/gxf_x86_64_cuda_12_6/core/libgxf_core.so DESTINATION lib)
-  install(FILES gxf/core/lib/gxf_x86_64_cuda_12_6/logger/libgxf_logger.so DESTINATION lib)
-  install(FILES gxf/core/lib/gxf_x86_64_cuda_12_6/multimedia/libgxf_multimedia.so DESTINATION lib)
-  install(FILES gxf/core/lib/gxf_x86_64_cuda_12_6/cuda/libgxf_cuda.so DESTINATION lib)
+  install(DIRECTORY gxf/core/lib/gxf_x86_64_cuda_13_0/ DESTINATION share/${PROJECT_NAME}/gxf/lib)
+  install(FILES gxf/core/lib/gxf_x86_64_cuda_13_0/core/libgxf_core.so DESTINATION lib)
+  install(FILES gxf/core/lib/gxf_x86_64_cuda_13_0/logger/libgxf_logger.so DESTINATION lib)
+  install(FILES gxf/core/lib/gxf_x86_64_cuda_13_0/multimedia/libgxf_multimedia.so DESTINATION lib)
+  install(FILES gxf/core/lib/gxf_x86_64_cuda_13_0/cuda/libgxf_cuda.so DESTINATION lib)
 elseif( ${ARCHITECTURE} STREQUAL "aarch64" )
   install(DIRECTORY gxf/core/lib/gxf_jetpack61/ DESTINATION share/${PROJECT_NAME}/gxf/lib)
   install(FILES gxf/core/lib/gxf_jetpack61/core/libgxf_core.so DESTINATION lib)
@@ -81,6 +82,18 @@ set_target_properties(Std PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES
     "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/include"
 )
+
+# CUDA 13.x compatibility: libcudacxx moved under CCCL
+if (CUDAToolkit_VERSION VERSION_GREATER_EQUAL 13)
+  message(STATUS "CUDA >= 13 detected, exporting CCCL include path")
+  target_include_directories(Std INTERFACE
+    ${CUDAToolkit_INCLUDE_DIR}/cccl
+  )
+  target_include_directories(Core INTERFACE
+    ${CUDAToolkit_INCLUDE_DIR}/cccl
+  )
+endif()
+
 
 # Multimedia
 add_library(Multimedia INTERFACE)
