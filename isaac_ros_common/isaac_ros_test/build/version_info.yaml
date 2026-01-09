@@ -1,7 +1,7 @@
-build_datetime: '2025-12-26T22:13:30.180419'
-git_branch: kevin/compression
-git_commit_date: 2025-12-22 19:24:07 -1000
-git_commit_hash: ac7bdb8e326a8d7c711998c02599471a8944bb57
-git_commit_message: Remove isaac_ros_pose_estimatino
+build_datetime: '2026-01-08T17:41:12.270026'
+git_branch: kevin/vslam
+git_commit_date: 2026-01-08 17:39:27 -0800
+git_commit_hash: b385dae36fa66a1ad55dd3e600214d1f343844b2
+git_commit_message: No submodule
 git_workspace_dirty: 'Yes'
 version: 4.0.0
