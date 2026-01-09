@@ -1,0 +1,33 @@
+/oak:
+  ros__parameters:
+    camera:
+      i_ip: "10.42.7.212"
+      i_enable_imu: true
+      i_enable_ir: false
+      i_pipeline_type: Stereo        # or RGBStereo if you also need RGB
+
+    stereo:
+      i_publish_topic: true
+      i_publish_synced_rect_pair: true    # publish left+right rectified pair with identical timestamps
+      i_publish_left_rect: true           # explicitly publish left/image_rect
+      i_publish_right_rect: true          # explicitly publish right/image_rect
+      i_left_rect_synced: true            # make sure left rect stream is synced
+      i_right_rect_synced: true           # make sure right rect stream is synced
+      i_lr_check: true                    # left-right consistency check (better disparity)
+      i_subpixel: true                    # (optional, improves disparity accuracy)
+
+    left:
+      i_resolution: 400P
+      i_fps: 30.0
+      i_publish_topic: true
+
+    right:
+      i_resolution: 400P
+      i_fps: 30.0
+      i_publish_topic: true
+
+    imu:
+      i_acc_freq: 125
+      i_gyro_freq: 125
+      i_message_type: IMU
+      i_sync_method: LINEAR_INTERPOLATE_ACCEL
