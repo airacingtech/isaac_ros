@@ -1,5 +1,15 @@
 # Installation
-Please ensure that you are running [CUDA 12.9](https://developer.nvidia.com/cuda-12-9-0-download-archive?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=22.04&target_type=deb_network).
+
+## CUDA 12.6.2
+Please ensure that you are running [CUDA 12.6.2](https://developer.nvidia.com/cuda-12-6-2-download-archive?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=22.04&target_type=deb_network).
+
+## CUDNN 9.7.1
+Please install it [here](https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb).
+```bash
+sudo dpkg -i cuda-keyring_1.1-1_all.deb
+sudo apt-get update
+sudo apt-get -y install cudnn
+```
 
 ## NVIDIA VPI
 Please add this to your apt package manager.
@@ -16,13 +26,18 @@ sudo apt install libnvvpi3 vpi3-dev vpi3-samples
 ```
 
 ## TensorRT 10
-You need TensorRT 10.x minimum. Please install it [here](https://developer.download.nvidia.com/compute/tensorrt/10.14.1/local_installers/nv-tensorrt-local-repo-ubuntu2204-10.14.1-cuda-12.9_1.0-1_amd64.deb)
+You need TensorRT 10.5. Please install it [here](https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.5.0/local_repo/nv-tensorrt-local-repo-ubuntu2204-10.5.0-cuda-12.6_1.0-1_amd64.deb)
 ```bash
 sudo apt install \
   tensorrt \
   tensorrt-dev \
   libnvinfer-plugin-dev \
-  libnvonnxparsers-dev
+  libnvonnxparsers-dev \
+  python3-libnvinfer \
+  python3-libnvinfer-dev \
+  python3-libnvinfer-plugin \
+  onnx-graphsurgeon \
+  polygraphy
 ```
 ## libnvTools
 Please install the legacy NVTX.
@@ -42,6 +57,21 @@ Please run these commands inside of isaac_ros_gxf.
 sudo apt install git-lfs
 git lfs install
 git lfs pull
+```
+## datacenter-gpu-manager (3)
+Please install libsdgcm.3 [here](https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/datacenter-gpu-manager_3.3.7_amd64.deb).
+
+## Boost 1.84
+Please install it [here](https://archives.boost.io/release/1.82.0/source/boost_1_82_0.tar.gz).
+```bash
+tar xzf boost_1_82_0.tar.gz && cd boost_1_82_0 && ./bootstrap.sh --prefix=/usr/local && sudo ./b2 install -j$(nproc)
+```
+
+## Tritonserver
+Install these dependencies first (Re2 and b64).
+```bash
+sudo apt-get install -y libre2-dev
+sudo apt-get install -y libb64-dev
 ```
 
 ## tensorrt cmake
