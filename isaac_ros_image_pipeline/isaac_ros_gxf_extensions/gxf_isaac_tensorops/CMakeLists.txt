@@ -23,6 +23,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake_auto REQUIRED)
+find_package(magic_enum REQUIRED)
 ament_auto_find_build_dependencies()
 
 # Dependencies
@@ -121,15 +122,10 @@ ament_auto_add_library(${PROJECT_NAME} SHARED
   gxf/extensions/tensorops/core/Tensor.h
   gxf/extensions/tensorops/core/Traits.h
 )
-target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/gxf")
-
-if (CUDAToolkit_VERSION VERSION_GREATER_EQUAL 13)
-  message(STATUS "CUDA >= 13 detected, adding CCCL include path")
-  target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CUDAToolkit_INCLUDE_DIRS}/cccl
-  )
-endif()
-
+target_include_directories(${PROJECT_NAME} PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/gxf"
+  /opt/ros/jazzy/include
+)
 target_link_libraries(${PROJECT_NAME}
   CUDA::cudart
   CUDA::nppc
@@ -141,6 +137,7 @@ target_link_libraries(${PROJECT_NAME}
   CUDA::nppisu
   yaml-cpp
   vpi
+  magic_enum::magic_enum
 )
 set_target_properties(${PROJECT_NAME} PROPERTIES
   BUILD_WITH_INSTALL_RPATH TRUE

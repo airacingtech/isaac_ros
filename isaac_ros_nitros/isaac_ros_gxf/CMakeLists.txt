@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2022-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,12 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(isaac_ros_gxf)
 
+# Add option for overriding GXF core library directory
+option(GXF_CORE_LIB_DIR_OVERRIDE "Override path for GXF core library directory" "")
+
 execute_process(COMMAND uname -m COMMAND tr -d '\n' OUTPUT_VARIABLE ARCHITECTURE)
 message( STATUS "Architecture: ${ARCHITECTURE}" )
 
-find_package(CUDAToolkit)
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
@@ -41,11 +43,18 @@ if( ${ARCHITECTURE} STREQUAL "x86_64" )
   install(FILES gxf/core/lib/gxf_x86_64_cuda_13_0/multimedia/libgxf_multimedia.so DESTINATION lib)
   install(FILES gxf/core/lib/gxf_x86_64_cuda_13_0/cuda/libgxf_cuda.so DESTINATION lib)
 elseif( ${ARCHITECTURE} STREQUAL "aarch64" )
-  install(DIRECTORY gxf/core/lib/gxf_jetpack61/ DESTINATION share/${PROJECT_NAME}/gxf/lib)
-  install(FILES gxf/core/lib/gxf_jetpack61/core/libgxf_core.so DESTINATION lib)
-  install(FILES gxf/core/lib/gxf_jetpack61/logger/libgxf_logger.so DESTINATION lib)
-  install(FILES gxf/core/lib/gxf_jetpack61/multimedia/libgxf_multimedia.so DESTINATION lib)
-  install(FILES gxf/core/lib/gxf_jetpack61/cuda/libgxf_cuda.so DESTINATION lib)
+  if(CMAKE_DEVICE STREQUAL "sbsa")
+    set(GXF_CORE_LIB_DIR gxf/core/lib/gxf_aarch64_cuda_13_0/)
+  elseif(CMAKE_DEVICE STREQUAL "arm64")
+    set(GXF_CORE_LIB_DIR gxf/core/lib/gxf_jetpack70/)
+  else()
+    message(FATAL_ERROR "Device is not supported.")
+  endif()
+  install(DIRECTORY ${GXF_CORE_LIB_DIR} DESTINATION share/${PROJECT_NAME}/gxf/lib)
+  install(FILES ${GXF_CORE_LIB_DIR}/core/libgxf_core.so DESTINATION lib)
+  install(FILES ${GXF_CORE_LIB_DIR}/logger/libgxf_logger.so DESTINATION lib)
+  install(FILES ${GXF_CORE_LIB_DIR}/multimedia/libgxf_multimedia.so DESTINATION lib)
+  install(FILES ${GXF_CORE_LIB_DIR}/cuda/libgxf_cuda.so DESTINATION lib)
 endif()
 
 # Register cmake in install.
@@ -82,18 +91,6 @@ set_target_properties(Std PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES
     "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/include"
 )
-
-# CUDA 13.x compatibility: libcudacxx moved under CCCL
-if (CUDAToolkit_VERSION VERSION_GREATER_EQUAL 13)
-  message(STATUS "CUDA >= 13 detected, exporting CCCL include path")
-  target_include_directories(Std INTERFACE
-    ${CUDAToolkit_INCLUDE_DIR}/cccl
-  )
-  target_include_directories(Core INTERFACE
-    ${CUDAToolkit_INCLUDE_DIR}/cccl
-  )
-endif()
-
 
 # Multimedia
 add_library(Multimedia INTERFACE)

@@ -50,18 +50,18 @@ std::error_code CreateVPIImageWrapperImpl(VPIImage& vpiImg, VPIImageData& imgdat
                                              : VPI_IMAGE_BUFFER_CUDA_PITCH_LINEAR;
     imgdata.buffer.pitch.format               = ToVpiImageFormat(T);
     imgdata.buffer.pitch.numPlanes            = 2;
-    imgdata.buffer.pitch.planes[0].data       = const_cast<uint8_t *>(cvcoreImage.getLumaData());
+    imgdata.buffer.pitch.planes[0].pBase      = const_cast<uint8_t *>(cvcoreImage.getLumaData());
     imgdata.buffer.pitch.planes[0].height     = cvcoreImage.getLumaHeight();
     imgdata.buffer.pitch.planes[0].width      = cvcoreImage.getLumaWidth();
     imgdata.buffer.pitch.planes[0].pixelType  = VPI_PIXEL_TYPE_U8;
-    //imgdata.buffer.pitch.planes[0].offsetBytes = 0;
+    imgdata.buffer.pitch.planes[0].offsetBytes = 0;
     imgdata.buffer.pitch.planes[0].pitchBytes = cvcoreImage.getLumaStride(
                                                     TensorDimension::HEIGHT) * sizeof(uint8_t);
-    imgdata.buffer.pitch.planes[1].data       = const_cast<uint8_t *>(cvcoreImage.getChromaData());
+    imgdata.buffer.pitch.planes[1].pBase      = const_cast<uint8_t *>(cvcoreImage.getChromaData());
     imgdata.buffer.pitch.planes[1].height     = cvcoreImage.getChromaHeight();
     imgdata.buffer.pitch.planes[1].width      = cvcoreImage.getChromaWidth();
     imgdata.buffer.pitch.planes[1].pixelType  = VPI_PIXEL_TYPE_2U8;
-    //imgdata.buffer.pitch.planes[1].offsetBytes = 0;
+    imgdata.buffer.pitch.planes[1].offsetBytes = 0;
     imgdata.buffer.pitch.planes[1].pitchBytes = cvcoreImage.getChromaStride(
                                                     TensorDimension::HEIGHT) * sizeof(uint8_t);
     VPIStatus vpiStatus;
@@ -82,11 +82,11 @@ std::error_code CreateVPIImageWrapperImpl(VPIImage& vpiImg, VPIImageData& imgdat
     imgdata.buffer.pitch.format               = ToVpiImageFormat(T);
     imgdata.buffer.pitch.numPlanes            = 1;
     D* data = const_cast<D *>(cvcoreImage.getData());
-    imgdata.buffer.pitch.planes[0].data       = reinterpret_cast<unsigned char *>(data);
+    imgdata.buffer.pitch.planes[0].pBase      = reinterpret_cast<unsigned char *>(data);
     imgdata.buffer.pitch.planes[0].height     = cvcoreImage.getHeight();
     imgdata.buffer.pitch.planes[0].width      = cvcoreImage.getWidth();
     imgdata.buffer.pitch.planes[0].pixelType  = ToVpiPixelType(T);
-    //imgdata.buffer.pitch.planes[0].offsetBytes = 0;
+    imgdata.buffer.pitch.planes[0].offsetBytes = 0;
     imgdata.buffer.pitch.planes[0].pitchBytes = cvcoreImage.getStride(
         TensorDimension::HEIGHT) * GetImageElementSize(T);
     VPIStatus vpiStatus;

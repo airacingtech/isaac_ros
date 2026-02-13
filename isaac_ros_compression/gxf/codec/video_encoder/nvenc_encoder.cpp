@@ -93,11 +93,13 @@ int NvencEncoder::createEncoder(NvencContext* ctx) {
   CUcontext current_ctx;
   cuCtxGetCurrent(&current_ctx);
   if (current_ctx == nullptr) {
-    CHECK_CUDA_ERROR(cuCtxCreate(&ctx->cu_context, 0, ctx->cu_device),
-                     "Failed to create CUDA context");
+    CUctxCreateParams create_params{};
+    CHECK_CUDA_ERROR(cuCtxCreate(&ctx->cu_context, &create_params, 0u, ctx->cu_device),
+                    "Failed to create CUDA context");
   } else {
     ctx->cu_context = current_ctx;
   }
+
   
   // Open encode session
   NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS session_params = {};

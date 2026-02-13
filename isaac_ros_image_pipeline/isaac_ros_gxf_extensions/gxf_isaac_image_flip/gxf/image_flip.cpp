@@ -101,7 +101,7 @@ VPIStatus CreateVPIImageWrapper(
   img_data.buffer.pitch.numPlanes = image_info.color_planes.size();
   auto data_ptr_offset = 0;
   for (size_t i = 0; i < image_info.color_planes.size(); ++i) {
-    img_data.buffer.pitch.planes[i].data = video_buff->pointer() + data_ptr_offset;
+    img_data.buffer.pitch.planes[i].pBase = video_buff->pointer() + data_ptr_offset;
     img_data.buffer.pitch.planes[i].height = image_info.color_planes[i].height;
     img_data.buffer.pitch.planes[i].width = image_info.color_planes[i].width;
     img_data.buffer.pitch.planes[i].pixelType = vpi_format.pixel_type[i];
@@ -118,7 +118,7 @@ VPIStatus UpdateVPIImageWrapper(
   nvidia::gxf::VideoBufferInfo image_info = video_buff->video_frame_info();
   auto data_ptr_offset = 0;
   for (size_t i = 0; i < image_info.color_planes.size(); ++i) {
-    imageWrap.buffer.pitch.planes[i].data = video_buff->pointer() + data_ptr_offset;
+    imageWrap.buffer.pitch.planes[i].pBase = video_buff->pointer() + data_ptr_offset;
     data_ptr_offset = image_info.color_planes[i].size;
   }
   return vpiImageSetWrapper(image, &imageWrap);

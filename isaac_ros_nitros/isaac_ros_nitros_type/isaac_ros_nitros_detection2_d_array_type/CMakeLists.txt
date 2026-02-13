@@ -25,18 +25,15 @@ endif()
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
+# Ensure CUDA imported targets (e.g., CUDA::nvtx3) are available
+find_package(CUDAToolkit REQUIRED)
+
+# NVTX
 option(USE_NVTX "Enable NVTX markers for improved profiling (if available)" ON)
-
 if(USE_NVTX)
-  find_package(CUDAToolkit REQUIRED)
-
-  if(NOT TARGET CUDA::nvtx3)
-    add_library(CUDA::nvtx3 INTERFACE IMPORTED)
-    target_include_directories(CUDA::nvtx3 SYSTEM INTERFACE
-      "${CUDAToolkit_INCLUDE_DIRS}"
-    )
-    target_link_libraries(CUDA::nvtx3 INTERFACE ${CMAKE_DL_LIBS})
-  endif()
+    add_definitions(-DUSE_NVTX)
+    link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
+    link_libraries("CUDA::nvtx3")
 endif()
 
 # Dependencies
@@ -47,12 +44,6 @@ ament_auto_add_library(${PROJECT_NAME} SHARED
   src/nitros_detection2_d_array.cpp
   src/detection2_d_array_message.cpp
 )
-
-if(USE_NVTX)
-  target_compile_definitions(${PROJECT_NAME} PRIVATE USE_NVTX)
-  target_link_libraries(${PROJECT_NAME} CUDA::nvtx3)
-endif()
-
 target_include_directories(${PROJECT_NAME} PUBLIC include/detectnet)
 target_link_libraries(${PROJECT_NAME}
   yaml-cpp

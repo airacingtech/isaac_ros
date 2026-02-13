@@ -33,29 +33,20 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/isaac_ros_common-extras.cmake)
 # Dependencies
 find_package(vpi REQUIRED)
 
-# vpi utilities
-ament_auto_add_library(${PROJECT_NAME} SHARED
-  src/cuda_stream.cpp
-  src/vpi_utilities.cpp
-  src/qos.cpp
-)
-target_link_libraries(${PROJECT_NAME} vpi CUDA::cudart)
-
 # NVTX
 option(USE_NVTX "Enable NVTX markers for improved profiling (if available)" ON)
 if(USE_NVTX)
     add_definitions(-DUSE_NVTX)
-    find_library(NVTX_LIB nvToolsExt
-        PATHS
-          /usr/lib/x86_64-linux-gnu
-          ${CUDA_TOOLKIT_ROOT_DIR}/lib64
-    )
-    if(NVTX_LIB)
-        target_link_libraries(${PROJECT_NAME} ${NVTX_LIB})
-    else()
-        message(WARNING "NVTX requested but libnvToolsExt not found, disabling NVTX")
-    endif()
+    link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
+    link_libraries("CUDA::nvtx3")
 endif()
+
+# vpi utilities
+ament_auto_add_library(${PROJECT_NAME} SHARED
+  src/cuda_stream.cpp
+  src/qos.cpp
+)
+target_link_libraries(${PROJECT_NAME} vpi CUDA::cudart)
 
 # Register cmake in install.
 ament_index_register_resource(isaac_ros_common_cmake_path CONTENT

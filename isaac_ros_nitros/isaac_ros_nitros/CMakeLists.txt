@@ -27,33 +27,25 @@ install(PROGRAMS scripts/diagnostic_viewer.py DESTINATION lib/${PROJECT_NAME})
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
-# NVTX (CUDA 12.9+ / 13.x: NVTX3 is header-only; libnvToolsExt may not exist)
+# Ensure CUDA imported targets (e.g., CUDA::nvtx3 / CUDA::nvToolsExt) are available
+find_package(CUDAToolkit REQUIRED)
+
+# NVTX
 option(USE_NVTX "Enable NVTX markers for improved profiling (if available)" ON)
-
 if(USE_NVTX)
-  add_definitions(-DUSE_NVTX)
-
-  find_package(CUDAToolkit REQUIRED)
-
-  # Header-only NVTX3 target (no libnvToolsExt.so required)
-  if(NOT TARGET CUDA::nvtx3)
-    add_library(CUDA::nvtx3 INTERFACE IMPORTED)
-    target_include_directories(CUDA::nvtx3 SYSTEM INTERFACE
-      "${CUDAToolkit_INCLUDE_DIR}"
-    )
-    target_link_libraries(CUDA::nvtx3 INTERFACE ${CMAKE_DL_LIBS})
-  endif()
+    add_definitions(-DUSE_NVTX)
+    link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
+    link_libraries("CUDA::nvtx3")
 endif()
-
 
 # cuVSLAM and cuApriltags (register paths and install)
 
 # Determine the architecture
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-    set(CUVSLAM_LIB_PATH "lib/cuvslam/lib_aarch64_jetpack61")
+    set(CUVSLAM_LIB_PATH "lib/cuvslam/lib_aarch64_jetpack70")
     set(CUAPRILTAGS_LIB_PATH "lib/cuapriltags/lib_aarch64_jetpack61")
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-    set(CUVSLAM_LIB_PATH "lib/cuvslam/lib_x86_64_cuda_12_6")
+    set(CUVSLAM_LIB_PATH "lib/cuvslam/lib_x86_64_cuda_13_0")
     set(CUAPRILTAGS_LIB_PATH "lib/cuapriltags/lib_x86_64_cuda_12_6")
 else()
     message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
@@ -68,9 +60,9 @@ install(FILES
     DESTINATION "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/cuvslam/lib")
 
 # Install header files for cuvslam
-install(FILES lib/cuvslam/include/cuvslam.h
-              lib/cuvslam/include/ground_constraint.h
-        DESTINATION "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/cuvslam/include")
+install(FILES lib/cuvslam/include/cuvslam/cuvslam2.h
+              lib/cuvslam/include/cuvslam/ground_constraint2.h
+        DESTINATION "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/cuvslam/include/cuvslam")
 
 # cuVSLAM (register path)
 ament_index_register_resource(cuvslam CONTENT share/${PROJECT_NAME}/cuvslam)
@@ -97,18 +89,12 @@ ament_auto_add_library(${PROJECT_NAME} SHARED
   src/nitros_publisher.cpp
   src/nitros_subscriber.cpp
   src/nitros_publisher_subscriber_group.cpp
-  src/utils/vpi_utilities.cpp
 )
 target_link_libraries(${PROJECT_NAME}
   Eigen3::Eigen
   vpi
   yaml-cpp
 )
-
-if(USE_NVTX)
-  target_link_libraries(${PROJECT_NAME} CUDA::nvtx3)
-endif()
-
 set_target_properties(${PROJECT_NAME} PROPERTIES
   BUILD_WITH_INSTALL_RPATH TRUE
   BUILD_RPATH_USE_ORIGIN TRUE

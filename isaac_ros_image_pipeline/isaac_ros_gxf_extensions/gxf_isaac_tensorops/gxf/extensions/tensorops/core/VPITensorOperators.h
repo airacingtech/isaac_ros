@@ -81,7 +81,7 @@ std::error_code UpdateImage(VPIImage & vpiImage, VPIImageData & vpiImageData,
     const Image<T> & image) {
     using D = typename Image<T>::DataType;
     D* data = const_cast<D *>(image.getData());
-    vpiImageData.buffer.pitch.planes[0].data = reinterpret_cast<uint8_t *>(data);
+    vpiImageData.buffer.pitch.planes[0].pBase = reinterpret_cast<uint8_t *>(data);
     return UpdateVPIImageWrapper(vpiImage, vpiImageData, image.isCPU());
 }
 
@@ -95,8 +95,8 @@ std::error_code UpdateImage(VPIImage & vpiImage, VPIImageData & vpiImageData,
 template<ImageType T, typename std::enable_if<IsCompositeImage<T>::value>::type * = nullptr>
 std::error_code UpdateImage(VPIImage & vpiImage, VPIImageData & vpiImageData,
     const Image<T> & image) {
-    vpiImageData.buffer.pitch.planes[0].data  = const_cast<uint8_t *>(image.getLumaData());
-    vpiImageData.buffer.pitch.planes[1].data  = const_cast<uint8_t *>(image.getChromaData());
+    vpiImageData.buffer.pitch.planes[0].pBase = const_cast<uint8_t *>(image.getLumaData());
+    vpiImageData.buffer.pitch.planes[1].pBase = const_cast<uint8_t *>(image.getChromaData());
     return UpdateVPIImageWrapper(vpiImage, vpiImageData, image.isCPU());
 }
 

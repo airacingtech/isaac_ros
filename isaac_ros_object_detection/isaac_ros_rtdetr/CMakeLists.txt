@@ -29,12 +29,11 @@ ament_auto_find_build_dependencies()
 find_package(CUDAToolkit REQUIRED)
 
 # NVTX
-if(NOT TARGET CUDA::nvtx3)
-  add_library(CUDA::nvtx3 SHARED IMPORTED)
-  set_target_properties(CUDA::nvtx3 PROPERTIES
-    IMPORTED_LOCATION "/usr/lib/x86_64-linux-gnu/libnvToolsExt.so.1"
-    INTERFACE_INCLUDE_DIRECTORIES "/usr/include"
-  )
+option(USE_NVTX "Enable NVTX markers for improved profiling (if available)" ON)
+if(USE_NVTX)
+    add_definitions(-DUSE_NVTX)
+    link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
+    link_libraries("CUDA::nvtx3")
 endif()
 
 # RtDetrPreprocessorNode

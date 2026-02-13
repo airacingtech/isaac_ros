@@ -23,6 +23,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake_auto REQUIRED)
+find_package(magic_enum REQUIRED)
 ament_auto_find_build_dependencies()
 
 # Dependencies
@@ -35,10 +36,14 @@ ament_auto_add_library(${PROJECT_NAME} SHARED
   gxf/image_flip.cpp
   gxf/image_flip.hpp
 )
-target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/gxf")
+target_include_directories(${PROJECT_NAME} PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/gxf"
+  /opt/ros/jazzy/include
+)
 target_link_libraries(${PROJECT_NAME}
   vpi
   yaml-cpp
+  magic_enum::magic_enum
 )
 set_target_properties(${PROJECT_NAME} PROPERTIES
   BUILD_WITH_INSTALL_RPATH TRUE
