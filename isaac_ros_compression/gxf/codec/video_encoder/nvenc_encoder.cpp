@@ -16,6 +16,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "nvenc_encoder.hpp"
+#include <cuda.h>
 #include <dlfcn.h>
 #include <cstring>
 #include <iostream>
@@ -93,9 +94,14 @@ int NvencEncoder::createEncoder(NvencContext* ctx) {
   CUcontext current_ctx;
   cuCtxGetCurrent(&current_ctx);
   if (current_ctx == nullptr) {
+#if CUDA_VERSION >= 13000
     CUctxCreateParams create_params{};
     CHECK_CUDA_ERROR(cuCtxCreate(&ctx->cu_context, &create_params, 0u, ctx->cu_device),
                     "Failed to create CUDA context");
+#else
+    CHECK_CUDA_ERROR(cuCtxCreate(&ctx->cu_context, 0u, ctx->cu_device),
+                    "Failed to create CUDA context");
+#endif
   } else {
     ctx->cu_context = current_ctx;
   }

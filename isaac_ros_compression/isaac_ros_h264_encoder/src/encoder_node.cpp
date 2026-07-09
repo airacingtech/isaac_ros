@@ -101,7 +101,10 @@ EncoderNode::EncoderNode(const rclcpp::NodeOptions & options)
   hw_preset_type_(declare_parameter<int32_t>("hw_preset_type", 0)),
   profile_(declare_parameter<int32_t>("profile", 0)),
   iframe_interval_(declare_parameter<int32_t>("iframe_interval", 5)),
-  config_(declare_parameter<std::string>("config", "pframe_cqp"))
+  config_(declare_parameter<std::string>("config", "pframe_cqp")),
+  bitrate_(declare_parameter<int32_t>("bitrate", 20000000)),
+  framerate_(declare_parameter<int32_t>("framerate", 30)),
+  rate_control_(declare_parameter<std::string>("rate_control", "cbr"))
 {
   RCLCPP_DEBUG(get_logger(), "[EncoderNode] Constructor");
 
@@ -148,6 +151,20 @@ void EncoderNode::postLoadGraphCallback()
   getNitrosContext().setParameterInt32(
     "encoder", "nvidia::gxf::VideoEncoderRequest", "iframe_interval",
     iframe_interval_);
+
+  const int32_t rate_control_mode =
+    (rate_control_ == "cbr") ? 1 : (rate_control_ == "vbr") ? 2 : 0;
+  getNitrosContext().setParameterInt32(
+    "encoder", "nvidia::gxf::VideoEncoderRequest", "rate_control_mode",
+    rate_control_mode);
+
+  getNitrosContext().setParameterInt32(
+    "encoder", "nvidia::gxf::VideoEncoderRequest", "bitrate",
+    bitrate_);
+
+  getNitrosContext().setParameterInt32(
+    "encoder", "nvidia::gxf::VideoEncoderRequest", "framerate",
+    framerate_);
 }
 
 EncoderNode::~EncoderNode() {}

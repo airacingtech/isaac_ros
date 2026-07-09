@@ -56,6 +56,9 @@ private:
   int32_t profile_;
   int32_t iframe_interval_;
   std::string config_;
+  int32_t bitrate_;
+  int32_t framerate_;
+  std::string rate_control_;
 };
 
 }  // namespace h264_encoder
