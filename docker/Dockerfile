@@ -37,7 +37,11 @@ RUN apt-get update && apt-get install -y --allow-downgrades --allow-change-held-
     && apt-mark hold libnvinfer-headers-dev libnvinfer10 libnvinfer-dev \
          libnvinfer-headers-plugin-dev libnvinfer-plugin10 libnvinfer-plugin-dev \
          libnvonnxparsers10 libnvonnxparsers-dev \
-    && rm -rf /var/lib/apt/lists/*
+    # Drop the per-GPU-arch builder-resource blobs (~1GB each). They are dlopen'd only
+    # when BUILDING TRT engines at runtime; a compile-only CI links against libnvinfer.so
+    # and never touches them. This keeps the image small enough to fit a GH runner disk.
+    && rm -f /usr/lib/x86_64-linux-gnu/libnvinfer_builder_resource*.so* \
+    && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/*
 
 # NVENC/NVDEC compile headers (driver libs are dlopen'd at runtime, so no GPU needed to build)
 RUN git clone --depth 1 --branch ${NV_CODEC_HEADERS_REF} \
