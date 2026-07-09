@@ -1,0 +1,100 @@
+name: build
+
+# Compile-test the NVENC/NVDEC codec + TensorRT packages against the host stack this
+# repo targets: CUDA 12.8 + TensorRT 10.15 (cuda12). Runs WITHOUT a GPU -- the codec
+# dlopen()s the NVENC/NVDEC driver libs at runtime, so only headers are needed to compile.
+#
+# This guards against the environment regressions we hit: CUDA 13 changed cuCtxCreate,
+# and TensorRT 11 removed nvinfer1::BuilderFlag::kFP16 /
+# NetworkDefinitionCreationFlag::kEXPLICIT_BATCH -- both silently broke the build.
+#
+# NOTE: first run on a fresh runner may need small tweaks (the CUDA image tag, the
+# nv-codec-headers tag, or --parallel-workers for the runner's RAM). The build of
+# nitros/gxf/tensor_rt is heavy; a larger or self-hosted runner speeds it up a lot.
+
+on:
+  push:
+    branches: [art-jazzy]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    container:
+      image: nvidia/cuda:12.8.1-devel-ubuntu24.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      # TensorRT 10.x (NOT 11 -- 11 removes kFP16/kEXPLICIT_BATCH). cuda12.9 build works
+      # with the CUDA 12.8 runtime (no hard cudart pin).
+      TRT_VERSION: "10.15.1.29-1+cuda12.9"
+      # FFmpeg/nv-codec-headers provides nvEncodeAPI.h + nvcuvid/cuviddec headers without
+      # the login-gated Video Codec SDK. Pin to a tag matching your SDK if you prefer.
+      NV_CODEC_HEADERS_REF: "n13.0.19.0"
+    steps:
+      - name: Checkout isaac_ros
+        uses: actions/checkout@v4
+        with:
+          path: src/isaac_ros
+
+      - name: System packages + ROS 2 Jazzy
+        shell: bash
+        run: |
+          set -euxo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git wget curl gnupg2 lsb-release ca-certificates locales \
+            build-essential cmake ninja-build software-properties-common
+          locale-gen en_US en_US.UTF-8 && update-locale LANG=en_US.UTF-8
+          add-apt-repository universe -y
+          curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+            -o /usr/share/keyrings/ros-archive-keyring.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu noble main" \
+            > /etc/apt/sources.list.d/ros2.list
+          apt-get update
+          apt-get install -y \
+            ros-jazzy-ros-base ros-dev-tools python3-colcon-common-extensions python3-rosdep
+
+      - name: TensorRT ${{ env.TRT_VERSION }} (base image already ships the CUDA repo)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          apt-get update
+          apt-get install -y --allow-downgrades --allow-change-held-packages \
+            libnvinfer-headers-dev=$TRT_VERSION libnvinfer10=$TRT_VERSION libnvinfer-dev=$TRT_VERSION \
+            libnvinfer-headers-plugin-dev=$TRT_VERSION libnvinfer-plugin10=$TRT_VERSION \
+            libnvinfer-plugin-dev=$TRT_VERSION libnvonnxparsers10=$TRT_VERSION libnvonnxparsers-dev=$TRT_VERSION
+
+      - name: NVENC/NVDEC headers (nv-codec-headers -> /usr/local/include)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --depth 1 --branch "$NV_CODEC_HEADERS_REF" \
+            https://github.com/FFmpeg/nv-codec-headers.git /tmp/nv-codec-headers
+          make -C /tmp/nv-codec-headers install PREFIX=/usr/local
+
+      - name: rosdep install
+        shell: bash
+        run: |
+          set -euxo pipefail
+          rosdep init 2>/dev/null || true
+          rosdep update
+          source /opt/ros/jazzy/setup.bash
+          # CUDA / TensorRT / NVENC are installed above, so skip those rosdep keys.
+          rosdep install --from-paths src --ignore-src -y --rosdistro jazzy \
+            --skip-keys "cuda cudart tensorrt libnvinfer libnvinfer-dev nvidia-encode nvidia-decode" || true
+
+      - name: colcon build (compile test)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          source /opt/ros/jazzy/setup.bash
+          export CUDA_HOME=/usr/local/cuda
+          export PATH=/usr/local/cuda/bin:$PATH
+          # Compression = the NVENC/NVDEC codec (broke on CUDA 13 cuCtxCreate);
+          # tensor_rt = the DNN path (broke on TensorRT 11 kFP16/kEXPLICIT_BATCH).
+          colcon build \
+            --packages-up-to isaac_ros_h264_encoder isaac_ros_h264_decoder isaac_ros_tensor_rt \
+            --cmake-args -DCMAKE_BUILD_TYPE=Release \
+            --parallel-workers 2 \
+            --event-handlers console_direct+
