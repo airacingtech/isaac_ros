@@ -95,8 +95,6 @@ EncoderNode::EncoderNode(const rclcpp::NodeOptions & options)
     GENERATOR_RULE_FILENAMES,
     EXTENSIONS,
     PACKAGE_NAME),
-  input_width_(declare_parameter<int32_t>("input_width", 0)),
-  input_height_(declare_parameter<int32_t>("input_height", 0)),
   qp_(declare_parameter<int32_t>("qp", 20)),
   hw_preset_type_(declare_parameter<int32_t>("hw_preset_type", 0)),
   profile_(declare_parameter<int32_t>("profile", 0)),
@@ -130,14 +128,6 @@ void EncoderNode::postLoadGraphCallback()
   RCLCPP_INFO(get_logger(), "[EncoderNode] postLoadGraphCallback().");
 
   // Update encoder parameters
-  getNitrosContext().setParameterUInt32(
-    "encoder", "nvidia::gxf::VideoEncoderRequest", "input_width",
-    (uint32_t)input_width_);
-
-  getNitrosContext().setParameterUInt32(
-    "encoder", "nvidia::gxf::VideoEncoderRequest", "input_height",
-    (uint32_t)input_height_);
-
   getNitrosContext().setParameterUInt32(
     "encoder", "nvidia::gxf::VideoEncoderRequest", "qp",
     (uint32_t)qp_);

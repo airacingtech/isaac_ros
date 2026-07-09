@@ -90,8 +90,6 @@ components:
     profile: 0
     qp: 20
     hw_preset_type: 0
-    input_width: 1920
-    input_height: 1080
     input_format: nv12
     config: pframe_cqp
     iframe_interval: 5

@@ -49,8 +49,6 @@ public:
   void postLoadGraphCallback() override;
 
 private:
-  int32_t input_width_;
-  int32_t input_height_;
   int32_t qp_;
   int32_t hw_preset_type_;
   int32_t profile_;
