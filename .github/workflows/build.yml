@@ -1,21 +1,37 @@
 name: build
 
-# Compile-test the NVENC/NVDEC codec + TensorRT packages against the host stack this
-# repo targets: CUDA 12.8 + TensorRT 10.15 (cuda12). Runs WITHOUT a GPU -- the codec
-# dlopen()s the NVENC/NVDEC driver libs at runtime, so only headers are needed to compile.
+# Compile-test ALL isaac_ros packages against the host stack this repo targets:
+# CUDA 12.8 + TensorRT 10.15 (cuda12). Runs WITHOUT a GPU -- the NVENC/NVDEC codec
+# dlopen()s the driver libs at runtime, so only headers are needed to compile.
 #
-# This guards against the environment regressions we hit: CUDA 13 changed cuCtxCreate,
-# and TensorRT 11 removed nvinfer1::BuilderFlag::kFP16 /
-# NetworkDefinitionCreationFlag::kEXPLICIT_BATCH -- both silently broke the build.
+# Guards the environment regressions we hit: CUDA 13 changed cuCtxCreate, and
+# TensorRT 11 removed kFP16 / kEXPLICIT_BATCH -- both silently broke the build.
 #
-# NOTE: first run on a fresh runner may need small tweaks (the CUDA image tag, the
-# nv-codec-headers tag, or --parallel-workers for the runner's RAM). The build of
-# nitros/gxf/tensor_rt is heavy; a larger or self-hosted runner speeds it up a lot.
+# Cost control:
+#   * paths filter  -> only runs when build-relevant files change (not docs/params/launch).
+#   * dependency caches (apt debs) + build caches (ccache + colcon build/install) are
+#     restored, so a source change reinstalls nothing and recompiles ONLY the packages
+#     that actually changed. The first run is slow (populates the caches); later runs
+#     are incremental.
 
 on:
+  pull_request:
+    paths: &build_paths
+      - "**/*.c"
+      - "**/*.cc"
+      - "**/*.cpp"
+      - "**/*.cu"
+      - "**/*.cuh"
+      - "**/*.h"
+      - "**/*.hpp"
+      - "**/*.cmake"
+      - "**/CMakeLists.txt"
+      - "**/package.xml"
+      - "**/*.repos"
+      - ".github/workflows/build.yml"
   push:
     branches: [art-jazzy]
-  pull_request:
+    paths: *build_paths
   workflow_dispatch:
 
 jobs:
@@ -25,26 +41,44 @@ jobs:
       image: nvidia/cuda:12.8.1-devel-ubuntu24.04
     env:
       DEBIAN_FRONTEND: noninteractive
-      # TensorRT 10.x (NOT 11 -- 11 removes kFP16/kEXPLICIT_BATCH). cuda12.9 build works
-      # with the CUDA 12.8 runtime (no hard cudart pin).
-      TRT_VERSION: "10.15.1.29-1+cuda12.9"
-      # FFmpeg/nv-codec-headers provides nvEncodeAPI.h + nvcuvid/cuviddec headers without
-      # the login-gated Video Codec SDK. Pin to a tag matching your SDK if you prefer.
-      NV_CODEC_HEADERS_REF: "n13.0.19.0"
+      TRT_VERSION: "10.15.1.29-1+cuda12.9"           # NOT 11 (drops kFP16/kEXPLICIT_BATCH)
+      NV_CODEC_HEADERS_REF: "n13.0.19.0"             # FFmpeg NVENC/NVDEC headers (no login-gated SDK)
+      CCACHE_DIR: "${{ github.workspace }}/.ccache"
+      CCACHE_MAXSIZE: "3G"
     steps:
       - name: Checkout isaac_ros
         uses: actions/checkout@v4
         with:
           path: src/isaac_ros
 
+      # ---- caches: restored before any install/build so nothing heavy is redone ----
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/build.yml') }}
+          restore-keys: apt-${{ runner.os }}-
+      - name: Cache ccache + colcon build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ccache
+            build
+            install
+          key: colcon-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            colcon-${{ runner.os }}-
+
       - name: System packages + ROS 2 Jazzy
         shell: bash
         run: |
           set -euxo pipefail
+          # keep downloaded .debs so the apt cache above is populated (don't autoclean)
+          rm -f /etc/apt/apt.conf.d/docker-clean
           apt-get update
           apt-get install -y --no-install-recommends \
             git wget curl gnupg2 lsb-release ca-certificates locales \
-            build-essential cmake ninja-build software-properties-common
+            build-essential cmake ninja-build ccache software-properties-common
           locale-gen en_US en_US.UTF-8 && update-locale LANG=en_US.UTF-8
           add-apt-repository universe -y
           curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
@@ -69,9 +103,11 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          git clone --depth 1 --branch "$NV_CODEC_HEADERS_REF" \
-            https://github.com/FFmpeg/nv-codec-headers.git /tmp/nv-codec-headers
-          make -C /tmp/nv-codec-headers install PREFIX=/usr/local
+          if [ ! -f /usr/local/include/nvEncodeAPI.h ]; then
+            git clone --depth 1 --branch "$NV_CODEC_HEADERS_REF" \
+              https://github.com/FFmpeg/nv-codec-headers.git /tmp/nv-codec-headers
+            make -C /tmp/nv-codec-headers install PREFIX=/usr/local
+          fi
 
       - name: rosdep install
         shell: bash
@@ -84,17 +120,23 @@ jobs:
           rosdep install --from-paths src --ignore-src -y --rosdistro jazzy \
             --skip-keys "cuda cudart tensorrt libnvinfer libnvinfer-dev nvidia-encode nvidia-decode" || true
 
-      - name: colcon build (compile test)
+      - name: colcon build (all packages, incremental via ccache + build cache)
         shell: bash
         run: |
           set -euxo pipefail
           source /opt/ros/jazzy/setup.bash
           export CUDA_HOME=/usr/local/cuda
           export PATH=/usr/local/cuda/bin:$PATH
-          # Compression = the NVENC/NVDEC codec (broke on CUDA 13 cuCtxCreate);
-          # tensor_rt = the DNN path (broke on TensorRT 11 kFP16/kEXPLICIT_BATCH).
+          ccache -z || true
+          # Build everything. *_models_install packages only download NGC assets (not a
+          # compile test) -- skip them. Add more to --packages-skip if a package needs
+          # deps unavailable in CI.
           colcon build \
-            --packages-up-to isaac_ros_h264_encoder isaac_ros_h264_decoder isaac_ros_tensor_rt \
+            --packages-skip-regex ".*_models_install" \
             --cmake-args -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+              -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache \
             --parallel-workers 2 \
             --event-handlers console_direct+
+          ccache -s || true
