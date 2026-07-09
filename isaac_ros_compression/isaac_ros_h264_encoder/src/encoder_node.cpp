@@ -104,7 +104,9 @@ EncoderNode::EncoderNode(const rclcpp::NodeOptions & options)
   config_(declare_parameter<std::string>("config", "pframe_cqp")),
   bitrate_(declare_parameter<int32_t>("bitrate", 20000000)),
   framerate_(declare_parameter<int32_t>("framerate", 30)),
-  rate_control_(declare_parameter<std::string>("rate_control", "cbr"))
+  rate_control_(declare_parameter<std::string>("rate_control", "cbr")),
+  intra_refresh_(declare_parameter<int32_t>("intra_refresh", 0)),
+  vbv_buffer_frames_(declare_parameter<int32_t>("vbv_buffer_frames", 1))
 {
   RCLCPP_DEBUG(get_logger(), "[EncoderNode] Constructor");
 
@@ -165,6 +167,14 @@ void EncoderNode::postLoadGraphCallback()
   getNitrosContext().setParameterInt32(
     "encoder", "nvidia::gxf::VideoEncoderRequest", "framerate",
     framerate_);
+
+  getNitrosContext().setParameterInt32(
+    "encoder", "nvidia::gxf::VideoEncoderRequest", "intra_refresh",
+    intra_refresh_);
+
+  getNitrosContext().setParameterInt32(
+    "encoder", "nvidia::gxf::VideoEncoderRequest", "vbv_buffer_frames",
+    vbv_buffer_frames_);
 }
 
 EncoderNode::~EncoderNode() {}

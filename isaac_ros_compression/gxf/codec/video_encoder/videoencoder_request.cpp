@@ -92,6 +92,12 @@ if (!registrar) {
   result &= registrar->parameter(framerate_, "framerate", "Frame Rate, FPS",
                        "Frames per second",
                        30);
+  result &= registrar->parameter(intra_refresh_, "intra_refresh",
+                       "Intra-refresh period in frames (0=off -> IDR GOP)",
+                       "Rolling intra-refresh period for loss recovery", 0);
+  result &= registrar->parameter(vbv_buffer_frames_, "vbv_buffer_frames",
+                       "VBV buffer size in frames",
+                       "VBV size as a multiple of one frames bit budget", 1);
   result &= registrar->parameter(config_, "config",
                        "Preset of parameters, select from pframe_cqp, iframe_cqp, custom",
                        "Preset of config",
@@ -154,6 +160,8 @@ gxf_result_t VideoEncoderRequest::start() {
     impl_->ctx->nvenc_ctx->level = impl_->ctx->level;
     impl_->ctx->nvenc_ctx->qp = impl_->ctx->qp;
     impl_->ctx->nvenc_ctx->rate_control_mode = impl_->ctx->rate_control_mode;
+    impl_->ctx->nvenc_ctx->intra_refresh = intra_refresh_;
+    impl_->ctx->nvenc_ctx->vbv_buffer_frames = vbv_buffer_frames_;
     
     NvencEncoder encoder;
     if (encoder.initialize(impl_->ctx->nvenc_ctx) != 0) {

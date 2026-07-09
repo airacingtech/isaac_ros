@@ -53,6 +53,8 @@ struct NvencContext {
   uint32_t level;
   uint32_t qp;
   uint32_t rate_control_mode;
+  uint32_t intra_refresh;
+  uint32_t vbv_buffer_frames;
   
   // Input/output buffers
   std::vector<NV_ENC_REGISTERED_PTR> registered_resources;
