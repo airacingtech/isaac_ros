@@ -7,12 +7,13 @@ name: build
 # Guards the environment regressions we hit: CUDA 13 changed cuCtxCreate, and
 # TensorRT 11 removed kFP16 / kEXPLICIT_BATCH -- both silently broke the build.
 #
-# Cost control:
-#   * paths filter  -> only runs when build-relevant files change (not docs/params/launch).
-#   * dependency caches (apt debs) + build caches (ccache + colcon build/install) are
-#     restored, so a source change reinstalls nothing and recompiles ONLY the packages
-#     that actually changed. The first run is slow (populates the caches); later runs
-#     are incremental.
+# Fast + small by design:
+#   * The heavy, stable toolchain (CUDA/ROS/TRT/nv-codec-headers) is BAKED into a GHCR
+#     image (docker/Dockerfile). It is rebuilt only when that Dockerfile changes and
+#     lives in the container registry -- it never touches the 10 GB Actions cache.
+#   * The only Actions cache is ccache (capped, zstd-compressed) -- a few hundred MB, not
+#     the multi-GB build/install trees. Warm ccache makes recompiles near-instant.
+#   * A paths filter skips runs that don't touch build-relevant files.
 
 on:
   pull_request:
@@ -28,99 +29,83 @@ on:
       - "**/CMakeLists.txt"
       - "**/package.xml"
       - "**/*.repos"
+      - "docker/Dockerfile"
       - ".github/workflows/build.yml"
   push:
     branches: [art-jazzy]
     paths: *build_paths
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/ci-deps
+
 jobs:
+  # Build the dependency image only if one for this exact Dockerfile doesn't already
+  # exist in the registry. Tag = hash of the Dockerfile, so an unchanged Dockerfile is a
+  # ~10s no-op and source-only PRs reuse the cached image.
+  deps-image:
+    runs-on: ubuntu-24.04
+    outputs:
+      ref: ${{ steps.tag.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: tag
+        run: echo "ref=$IMAGE:$(sha256sum docker/Dockerfile | cut -c1-12)" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build + push if missing
+        run: |
+          set -euxo pipefail
+          REF="${{ steps.tag.outputs.ref }}"
+          if docker manifest inspect "$REF" >/dev/null 2>&1; then
+            echo "Dependency image $REF already exists -- reusing."
+          else
+            docker build -t "$REF" -f docker/Dockerfile docker
+            docker push "$REF"
+          fi
+
   compile:
+    needs: deps-image
     runs-on: ubuntu-24.04
     container:
-      image: nvidia/cuda:12.8.1-devel-ubuntu24.04
+      image: ${{ needs.deps-image.outputs.ref }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     env:
-      DEBIAN_FRONTEND: noninteractive
-      TRT_VERSION: "10.15.1.29-1+cuda12.9"           # NOT 11 (drops kFP16/kEXPLICIT_BATCH)
-      NV_CODEC_HEADERS_REF: "n13.0.19.0"             # FFmpeg NVENC/NVDEC headers (no login-gated SDK)
-      CCACHE_DIR: "${{ github.workspace }}/.ccache"
-      CCACHE_MAXSIZE: "3G"
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: "2G"
+      CCACHE_COMPRESS: "1"
     steps:
       - name: Checkout isaac_ros
         uses: actions/checkout@v4
         with:
           path: src/isaac_ros
 
-      # ---- caches: restored before any install/build so nothing heavy is redone ----
-      - name: Cache apt packages
+      - name: Cache ccache (small; the only Actions cache)
         uses: actions/cache@v4
         with:
-          path: /var/cache/apt/archives
-          key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/build.yml') }}
-          restore-keys: apt-${{ runner.os }}-
-      - name: Cache ccache + colcon build
-        uses: actions/cache@v4
-        with:
-          path: |
-            .ccache
-            build
-            install
-          key: colcon-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            colcon-${{ runner.os }}-
+          path: .ccache
+          key: ccache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: ccache-${{ runner.os }}-
 
-      - name: System packages + ROS 2 Jazzy
+      - name: rosdep install (toolchain already baked; this pulls light ROS deps)
         shell: bash
         run: |
           set -euxo pipefail
-          # keep downloaded .debs so the apt cache above is populated (don't autoclean)
-          rm -f /etc/apt/apt.conf.d/docker-clean
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            git wget curl gnupg2 lsb-release ca-certificates locales \
-            build-essential cmake ninja-build ccache software-properties-common
-          locale-gen en_US en_US.UTF-8 && update-locale LANG=en_US.UTF-8
-          add-apt-repository universe -y
-          curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
-            -o /usr/share/keyrings/ros-archive-keyring.gpg
-          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu noble main" \
-            > /etc/apt/sources.list.d/ros2.list
-          apt-get update
-          apt-get install -y \
-            ros-jazzy-ros-base ros-dev-tools python3-colcon-common-extensions python3-rosdep
-
-      - name: TensorRT ${{ env.TRT_VERSION }} (base image already ships the CUDA repo)
-        shell: bash
-        run: |
-          set -euxo pipefail
-          apt-get update
-          apt-get install -y --allow-downgrades --allow-change-held-packages \
-            libnvinfer-headers-dev=$TRT_VERSION libnvinfer10=$TRT_VERSION libnvinfer-dev=$TRT_VERSION \
-            libnvinfer-headers-plugin-dev=$TRT_VERSION libnvinfer-plugin10=$TRT_VERSION \
-            libnvinfer-plugin-dev=$TRT_VERSION libnvonnxparsers10=$TRT_VERSION libnvonnxparsers-dev=$TRT_VERSION
-
-      - name: NVENC/NVDEC headers (nv-codec-headers -> /usr/local/include)
-        shell: bash
-        run: |
-          set -euxo pipefail
-          if [ ! -f /usr/local/include/nvEncodeAPI.h ]; then
-            git clone --depth 1 --branch "$NV_CODEC_HEADERS_REF" \
-              https://github.com/FFmpeg/nv-codec-headers.git /tmp/nv-codec-headers
-            make -C /tmp/nv-codec-headers install PREFIX=/usr/local
-          fi
-
-      - name: rosdep install
-        shell: bash
-        run: |
-          set -euxo pipefail
-          rosdep init 2>/dev/null || true
-          rosdep update
           source /opt/ros/jazzy/setup.bash
-          # CUDA / TensorRT / NVENC are installed above, so skip those rosdep keys.
+          rosdep update
           rosdep install --from-paths src --ignore-src -y --rosdistro jazzy \
             --skip-keys "cuda cudart tensorrt libnvinfer libnvinfer-dev nvidia-encode nvidia-decode" || true
 
-      - name: colcon build (all packages, incremental via ccache + build cache)
+      - name: colcon build (all packages, ccache-accelerated)
         shell: bash
         run: |
           set -euxo pipefail
@@ -128,9 +113,7 @@ jobs:
           export CUDA_HOME=/usr/local/cuda
           export PATH=/usr/local/cuda/bin:$PATH
           ccache -z || true
-          # Build everything. *_models_install packages only download NGC assets (not a
-          # compile test) -- skip them. Add more to --packages-skip if a package needs
-          # deps unavailable in CI.
+          # *_models_install packages only download NGC assets (not a compile test) -- skip.
           colcon build \
             --packages-skip-regex ".*_models_install" \
             --cmake-args -DCMAKE_BUILD_TYPE=Release \
