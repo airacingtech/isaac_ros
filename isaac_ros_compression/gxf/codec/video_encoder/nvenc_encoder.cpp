@@ -163,15 +163,14 @@ int NvencEncoder::configureEncoder(NvencContext* ctx) {
   encode_config.profileGUID = NV_ENC_H264_PROFILE_HIGH_GUID;
   encode_config.frameIntervalP = 1;  // No B-frames
 
-  // GOP / intra-refresh. Rolling intra-refresh recovers from packet loss without
-  // periodic IDR bitrate spikes -- preferred for a lossy cellular uplink.
+  // Periodic IDR (gop_length) bounds decoder re-sync / reconnect time on a lossy
+  // link; intra-refresh adds rolling I-block recovery between IDRs. The decoder
+  // needs a real IDR to (re)acquire, so we keep a finite GOP even with refresh on.
+  encode_config.gopLength = ctx->gop_length;
   if (ctx->intra_refresh > 0) {
-    encode_config.gopLength = NVENC_INFINITE_GOPLENGTH;
     encode_config.encodeCodecConfig.h264Config.enableIntraRefresh = 1;
     encode_config.encodeCodecConfig.h264Config.intraRefreshPeriod = ctx->intra_refresh;
     encode_config.encodeCodecConfig.h264Config.intraRefreshCnt = ctx->intra_refresh;
-  } else {
-    encode_config.gopLength = ctx->gop_length;
   }
   
   // Rate control
@@ -188,8 +187,7 @@ int NvencEncoder::configureEncoder(NvencContext* ctx) {
   encode_config.rcParams.constQP = {ctx->qp, ctx->qp, ctx->qp};
   
   // H.264 config
-  encode_config.encodeCodecConfig.h264Config.idrPeriod =
-    (ctx->intra_refresh > 0) ? NVENC_INFINITE_GOPLENGTH : ctx->gop_length;
+  encode_config.encodeCodecConfig.h264Config.idrPeriod = ctx->gop_length;
   encode_config.encodeCodecConfig.h264Config.sliceMode = 0;
   encode_config.encodeCodecConfig.h264Config.sliceModeData = 0;
   encode_config.encodeCodecConfig.h264Config.repeatSPSPPS = 1;
