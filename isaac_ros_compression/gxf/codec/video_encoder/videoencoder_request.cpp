@@ -163,13 +163,11 @@ gxf_result_t VideoEncoderRequest::start() {
     impl_->ctx->nvenc_ctx->intra_refresh = intra_refresh_;
     impl_->ctx->nvenc_ctx->vbv_buffer_frames = vbv_buffer_frames_;
     
-    NvencEncoder encoder;
-    if (encoder.initialize(impl_->ctx->nvenc_ctx) != 0) {
-      GXF_LOG_ERROR("Failed to initialize NVENC encoder");
-      return GXF_FAILURE;
-    }
+    // Defer NVENC init to the first frame (encodeWithNvenc) so resolution is
+    // auto-detected from the incoming VideoBuffer; input_width/height override it.
+    impl_->ctx->nvenc_ctx->initialized = false;
     
-    GXF_LOG_INFO("NVENC SDK backend initialized successfully");
+    GXF_LOG_INFO("NVENC backend configured; init deferred to first frame (resolution auto-detect)");
     return GXF_SUCCESS;
   }
   
@@ -358,6 +356,27 @@ gxf_result_t VideoEncoderRequest::encodeWithNvenc(
                                 const gxf::Handle<gxf::VideoBuffer> input_img) {
   auto input_img_info = input_img->video_frame_info();
   
+  // First frame: initialize NVENC now that the actual stream resolution is known.
+  // input_width_/input_height_ override the detected size when non-zero (0 = auto).
+  if (!impl_->ctx->nvenc_ctx->initialized) {
+    const uint32_t w = (input_width_ != 0) ? static_cast<uint32_t>(input_width_) : input_img_info.width;
+    const uint32_t h = (input_height_ != 0) ? static_cast<uint32_t>(input_height_) : input_img_info.height;
+    if (w == 0 || h == 0 || (w % 2) != 0 || (h % 2) != 0) {
+      GXF_LOG_ERROR("NVENC: invalid stream resolution %ux%u", w, h);
+      return GXF_FAILURE;
+    }
+    impl_->ctx->nvenc_ctx->width = w;
+    impl_->ctx->nvenc_ctx->height = h;
+    NvencEncoder init_encoder;
+    if (init_encoder.initialize(impl_->ctx->nvenc_ctx) != 0) {
+      GXF_LOG_ERROR("Failed to initialize NVENC encoder (%ux%u)", w, h);
+      return GXF_FAILURE;
+    }
+    impl_->ctx->nvenc_ctx->initialized = true;
+    GXF_LOG_INFO("NVENC initialized at %ux%u (%s)", w, h,
+                 (input_width_ != 0) ? "configured" : "auto-detected from stream");
+  }
+
   // For NVENC, we need the input data as a CUDA device pointer in NV12 format
   void* cuda_input_ptr = const_cast<void*>(static_cast<const void*>(input_img->pointer()));
   uint32_t pitch = input_img_info.color_planes[0].stride;
@@ -588,23 +607,26 @@ gxf_result_t VideoEncoderRequest::checkInputParams() {
     GXF_LOG_ERROR("Error in input parameter: in inbuf_storage_type");
     return GXF_FAILURE;
   }
-  if ((input_width_ < kVideoEncoderMinWidth) ||
-      (input_width_ > kVideoEncoderMaxWidth)) {
-    GXF_LOG_ERROR("Error in input parameter: Unsupported input_width");
-    return GXF_FAILURE;
+  // input_width/input_height == 0 => auto-detect from the first frame (encodeWithNvenc).
+  if (input_width_ != 0) {
+    if ((input_width_ < kVideoEncoderMinWidth) || (input_width_ > kVideoEncoderMaxWidth)) {
+      GXF_LOG_ERROR("Error in input parameter: Unsupported input_width");
+      return GXF_FAILURE;
+    }
+    if (input_width_ % 2 != 0) {
+      GXF_LOG_ERROR("Error in input parameter: input_width must be an even number");
+      return GXF_FAILURE;
+    }
   }
-  if (input_width_ % 2 != 0) {
-    GXF_LOG_ERROR("Error in input parameter: input_width must be an even number");
-    return GXF_FAILURE;
-  }
-  if ((input_height_ < kVideoEncoderMinHeight) ||
-      (input_height_ > kVideoEncoderMaxHeight)) {
-    GXF_LOG_ERROR("Error in input parameter: Unsupported input_height");
-    return GXF_FAILURE;
-  }
-  if (input_height_ % 2 != 0) {
-    GXF_LOG_ERROR("Error in input parameter: input_height must be an even number");
-    return GXF_FAILURE;
+  if (input_height_ != 0) {
+    if ((input_height_ < kVideoEncoderMinHeight) || (input_height_ > kVideoEncoderMaxHeight)) {
+      GXF_LOG_ERROR("Error in input parameter: Unsupported input_height");
+      return GXF_FAILURE;
+    }
+    if (input_height_ % 2 != 0) {
+      GXF_LOG_ERROR("Error in input parameter: input_height must be an even number");
+      return GXF_FAILURE;
+    }
   }
   if (iframe_interval_ < 0) {
     GXF_LOG_ERROR("Error in input parameter: iframe_interval_ < 0");

@@ -37,6 +37,7 @@ struct NvencContext {
   void* nvenc_lib;
   NV_ENCODE_API_FUNCTION_LIST nvenc_api;
   void* encoder;
+  bool initialized = false;  // deferred-init guard (resolution auto-detect)
   
   // CUDA context
   CUcontext cu_context;
