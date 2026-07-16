@@ -59,6 +59,7 @@ private:
   std::string rate_control_;
   int32_t intra_refresh_;
   int32_t vbv_buffer_frames_;
+  int32_t max_bitrate_;
 };
 
 }  // namespace h264_encoder

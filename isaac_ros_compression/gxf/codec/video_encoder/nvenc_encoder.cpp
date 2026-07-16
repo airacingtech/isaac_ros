@@ -178,10 +178,11 @@ int NvencEncoder::configureEncoder(NvencContext* ctx) {
       NV_ENC_PARAMS_RC_CONSTQP : 
       (ctx->rate_control_mode == 1) ? NV_ENC_PARAMS_RC_CBR : NV_ENC_PARAMS_RC_VBR;
   
+  uint32_t eff_max_bitrate = (ctx->max_bitrate > ctx->bitrate) ? ctx->max_bitrate : ctx->bitrate;
   encode_config.rcParams.averageBitRate = ctx->bitrate;
-  encode_config.rcParams.maxBitRate = ctx->bitrate;
+  encode_config.rcParams.maxBitRate = eff_max_bitrate;
   encode_config.rcParams.vbvBufferSize =
-    (ctx->bitrate / ctx->framerate) *
+    (eff_max_bitrate / ctx->framerate) *
     ((ctx->vbv_buffer_frames > 0) ? ctx->vbv_buffer_frames : 1);
   encode_config.rcParams.vbvInitialDelay = encode_config.rcParams.vbvBufferSize;
   encode_config.rcParams.constQP = {ctx->qp, ctx->qp, ctx->qp};

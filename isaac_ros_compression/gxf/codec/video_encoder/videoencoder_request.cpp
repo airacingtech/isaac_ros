@@ -94,6 +94,9 @@ if (!registrar) {
   result &= registrar->parameter(vbv_buffer_frames_, "vbv_buffer_frames",
                        "VBV buffer size in frames",
                        "VBV size as a multiple of one frames bit budget", 1);
+  result &= registrar->parameter(max_bitrate_, "max_bitrate",
+                       "Peak bitrate for capped VBR (0 = use bitrate)",
+                       "Hard ceiling; averageBitRate stays at bitrate", 0);
   result &= registrar->parameter(config_, "config",
                        "Preset of parameters, select from pframe_cqp, iframe_cqp, custom",
                        "Preset of config",
@@ -158,6 +161,7 @@ gxf_result_t VideoEncoderRequest::start() {
     impl_->ctx->nvenc_ctx->rate_control_mode = impl_->ctx->rate_control_mode;
     impl_->ctx->nvenc_ctx->intra_refresh = intra_refresh_;
     impl_->ctx->nvenc_ctx->vbv_buffer_frames = vbv_buffer_frames_;
+    impl_->ctx->nvenc_ctx->max_bitrate = max_bitrate_;
     
     // Defer NVENC init to the first frame (encodeWithNvenc) so resolution is
     // auto-detected from the incoming VideoBuffer; input_width/height override it.
