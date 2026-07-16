@@ -16,6 +16,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "nvenc_encoder.hpp"
+#include <cuda.h>
 #include <dlfcn.h>
 #include <cstring>
 #include <iostream>
@@ -93,9 +94,14 @@ int NvencEncoder::createEncoder(NvencContext* ctx) {
   CUcontext current_ctx;
   cuCtxGetCurrent(&current_ctx);
   if (current_ctx == nullptr) {
+#if CUDA_VERSION >= 13000
     CUctxCreateParams create_params{};
     CHECK_CUDA_ERROR(cuCtxCreate(&ctx->cu_context, &create_params, 0u, ctx->cu_device),
                     "Failed to create CUDA context");
+#else
+    CHECK_CUDA_ERROR(cuCtxCreate(&ctx->cu_context, 0u, ctx->cu_device),
+                    "Failed to create CUDA context");
+#endif
   } else {
     ctx->cu_context = current_ctx;
   }
@@ -155,17 +161,29 @@ int NvencEncoder::configureEncoder(NvencContext* ctx) {
   
   // H.264 specific config
   encode_config.profileGUID = NV_ENC_H264_PROFILE_HIGH_GUID;
-  encode_config.gopLength = ctx->gop_length;
   encode_config.frameIntervalP = 1;  // No B-frames
+
+  // Periodic IDR (gop_length) bounds decoder re-sync / reconnect time on a lossy
+  // link; intra-refresh adds rolling I-block recovery between IDRs. The decoder
+  // needs a real IDR to (re)acquire, so we keep a finite GOP even with refresh on.
+  encode_config.gopLength = ctx->gop_length;
+  if (ctx->intra_refresh > 0) {
+    encode_config.encodeCodecConfig.h264Config.enableIntraRefresh = 1;
+    encode_config.encodeCodecConfig.h264Config.intraRefreshPeriod = ctx->intra_refresh;
+    encode_config.encodeCodecConfig.h264Config.intraRefreshCnt = ctx->intra_refresh;
+  }
   
   // Rate control
   encode_config.rcParams.rateControlMode = (ctx->rate_control_mode == 0) ? 
       NV_ENC_PARAMS_RC_CONSTQP : 
       (ctx->rate_control_mode == 1) ? NV_ENC_PARAMS_RC_CBR : NV_ENC_PARAMS_RC_VBR;
   
+  uint32_t eff_max_bitrate = (ctx->max_bitrate > ctx->bitrate) ? ctx->max_bitrate : ctx->bitrate;
   encode_config.rcParams.averageBitRate = ctx->bitrate;
-  encode_config.rcParams.maxBitRate = ctx->bitrate;
-  encode_config.rcParams.vbvBufferSize = ctx->bitrate / ctx->framerate;
+  encode_config.rcParams.maxBitRate = eff_max_bitrate;
+  encode_config.rcParams.vbvBufferSize =
+    (eff_max_bitrate / ctx->framerate) *
+    ((ctx->vbv_buffer_frames > 0) ? ctx->vbv_buffer_frames : 1);
   encode_config.rcParams.vbvInitialDelay = encode_config.rcParams.vbvBufferSize;
   encode_config.rcParams.constQP = {ctx->qp, ctx->qp, ctx->qp};
   

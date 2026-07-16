@@ -60,10 +60,6 @@ if (!registrar) {
   result &= registrar->parameter(codec_, "codec", "Video Codec to use",
                        "Video codec,  0:H264, only H264 supported",
                        0);
-  result &= registrar->parameter(input_height_, "input_height",
-                       "Input frame height", "");
-  result &= registrar->parameter(input_width_, "input_width",
-                       "Input image width", "");
   result &= registrar->parameter(input_format_, "input_format",
                        "Input color format, nv12,nv24,yuv420planar", "nv12",
                        gxf::EncoderInputFormat::kNV12);
@@ -92,6 +88,15 @@ if (!registrar) {
   result &= registrar->parameter(framerate_, "framerate", "Frame Rate, FPS",
                        "Frames per second",
                        30);
+  result &= registrar->parameter(intra_refresh_, "intra_refresh",
+                       "Intra-refresh period in frames (0=off -> IDR GOP)",
+                       "Rolling intra-refresh period for loss recovery", 0);
+  result &= registrar->parameter(vbv_buffer_frames_, "vbv_buffer_frames",
+                       "VBV buffer size in frames",
+                       "VBV size as a multiple of one frames bit budget", 1);
+  result &= registrar->parameter(max_bitrate_, "max_bitrate",
+                       "Peak bitrate for capped VBR (0 = use bitrate)",
+                       "Hard ceiling; averageBitRate stays at bitrate", 0);
   result &= registrar->parameter(config_, "config",
                        "Preset of parameters, select from pframe_cqp, iframe_cqp, custom",
                        "Preset of config",
@@ -154,14 +159,15 @@ gxf_result_t VideoEncoderRequest::start() {
     impl_->ctx->nvenc_ctx->level = impl_->ctx->level;
     impl_->ctx->nvenc_ctx->qp = impl_->ctx->qp;
     impl_->ctx->nvenc_ctx->rate_control_mode = impl_->ctx->rate_control_mode;
+    impl_->ctx->nvenc_ctx->intra_refresh = intra_refresh_;
+    impl_->ctx->nvenc_ctx->vbv_buffer_frames = vbv_buffer_frames_;
+    impl_->ctx->nvenc_ctx->max_bitrate = max_bitrate_;
     
-    NvencEncoder encoder;
-    if (encoder.initialize(impl_->ctx->nvenc_ctx) != 0) {
-      GXF_LOG_ERROR("Failed to initialize NVENC encoder");
-      return GXF_FAILURE;
-    }
+    // Defer NVENC init to the first frame (encodeWithNvenc) so resolution is
+    // auto-detected from the incoming VideoBuffer; input_width/height override it.
+    impl_->ctx->nvenc_ctx->initialized = false;
     
-    GXF_LOG_INFO("NVENC SDK backend initialized successfully");
+    GXF_LOG_INFO("NVENC backend configured; init deferred to first frame (resolution auto-detect)");
     return GXF_SUCCESS;
   }
   
@@ -350,6 +356,27 @@ gxf_result_t VideoEncoderRequest::encodeWithNvenc(
                                 const gxf::Handle<gxf::VideoBuffer> input_img) {
   auto input_img_info = input_img->video_frame_info();
   
+  // First frame: initialize NVENC from the stream resolution (single source of truth).
+  if (!impl_->ctx->nvenc_ctx->initialized) {
+    const uint32_t w = input_img_info.width;
+    const uint32_t h = input_img_info.height;
+    if (w == 0 || h == 0 || (w % 2) != 0 || (h % 2) != 0) {
+      GXF_LOG_ERROR("NVENC: invalid stream resolution %ux%u", w, h);
+      return GXF_FAILURE;
+    }
+    impl_->ctx->nvenc_ctx->width = w;
+    impl_->ctx->nvenc_ctx->height = h;
+    impl_->ctx->width = w;
+    impl_->ctx->height = h;
+    NvencEncoder init_encoder;
+    if (init_encoder.initialize(impl_->ctx->nvenc_ctx) != 0) {
+      GXF_LOG_ERROR("Failed to initialize NVENC encoder (%ux%u)", w, h);
+      return GXF_FAILURE;
+    }
+    impl_->ctx->nvenc_ctx->initialized = true;
+    GXF_LOG_INFO("NVENC auto-detected stream resolution %ux%u", w, h);
+  }
+
   // For NVENC, we need the input data as a CUDA device pointer in NV12 format
   void* cuda_input_ptr = const_cast<void*>(static_cast<const void*>(input_img->pointer()));
   uint32_t pitch = input_img_info.color_planes[0].stride;
@@ -580,24 +607,8 @@ gxf_result_t VideoEncoderRequest::checkInputParams() {
     GXF_LOG_ERROR("Error in input parameter: in inbuf_storage_type");
     return GXF_FAILURE;
   }
-  if ((input_width_ < kVideoEncoderMinWidth) ||
-      (input_width_ > kVideoEncoderMaxWidth)) {
-    GXF_LOG_ERROR("Error in input parameter: Unsupported input_width");
-    return GXF_FAILURE;
-  }
-  if (input_width_ % 2 != 0) {
-    GXF_LOG_ERROR("Error in input parameter: input_width must be an even number");
-    return GXF_FAILURE;
-  }
-  if ((input_height_ < kVideoEncoderMinHeight) ||
-      (input_height_ > kVideoEncoderMaxHeight)) {
-    GXF_LOG_ERROR("Error in input parameter: Unsupported input_height");
-    return GXF_FAILURE;
-  }
-  if (input_height_ % 2 != 0) {
-    GXF_LOG_ERROR("Error in input parameter: input_height must be an even number");
-    return GXF_FAILURE;
-  }
+  // Resolution is auto-detected from the stream at the first frame (encodeWithNvenc);
+  // there is no input_width/input_height parameter to validate here.
   if (iframe_interval_ < 0) {
     GXF_LOG_ERROR("Error in input parameter: iframe_interval_ < 0");
     return GXF_FAILURE;
@@ -720,10 +731,9 @@ VideoEncoderRequest::getEncoderSettingsFromParameters() {
     return gxf_ret_code;
   }
 
-  impl_->ctx->width = input_width_;
-  impl_->ctx->height = input_height_;
-  impl_->ctx->outbuf_bytesused[0] =
-                 (3 * impl_->ctx->width * impl_->ctx->height) >> 1;  // YUV 420
+  // ctx->width/height are set from the first frame (encodeWithNvenc); outbuf_bytesused
+  // is a V4L2-path hint sized from those once known.
+  impl_->ctx->outbuf_bytesused[0] = 0;
 
   impl_->ctx->qp = qp_;
   impl_->ctx->entropy = 1;  // CABAC

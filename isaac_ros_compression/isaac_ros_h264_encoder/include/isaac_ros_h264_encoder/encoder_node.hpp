@@ -49,13 +49,17 @@ public:
   void postLoadGraphCallback() override;
 
 private:
-  int32_t input_width_;
-  int32_t input_height_;
   int32_t qp_;
   int32_t hw_preset_type_;
   int32_t profile_;
   int32_t iframe_interval_;
   std::string config_;
+  int32_t bitrate_;
+  int32_t framerate_;
+  std::string rate_control_;
+  int32_t intra_refresh_;
+  int32_t vbv_buffer_frames_;
+  int32_t max_bitrate_;
 };
 
 }  // namespace h264_encoder

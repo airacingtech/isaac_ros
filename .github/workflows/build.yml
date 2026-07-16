@@ -1,0 +1,142 @@
+name: build
+
+# Compile-test ALL isaac_ros packages against the host stack this repo targets:
+# CUDA 12.8 + TensorRT 10.15 (cuda12). Runs WITHOUT a GPU -- the NVENC/NVDEC codec
+# dlopen()s the driver libs at runtime, so only headers are needed to compile.
+#
+# Guards the environment regressions we hit: CUDA 13 changed cuCtxCreate, and
+# TensorRT 11 removed kFP16 / kEXPLICIT_BATCH -- both silently broke the build.
+#
+# Fast + small by design:
+#   * The heavy, stable toolchain (CUDA/ROS/TRT/nv-codec-headers) is BAKED into a GHCR
+#     image (docker/Dockerfile), rebuilt only when that Dockerfile changes and stored in
+#     the registry -- it never touches the 10 GB Actions cache.
+#   * The only Actions cache is ccache (capped, zstd) -- warm ccache = near-instant recompiles.
+#   * A paths filter skips runs that don't touch build-relevant files.
+#   * GH runners only have ~14 GB free disk, so both jobs reclaim ~25 GB of preinstalled
+#     toolchains first, and the image drops TensorRT's multi-GB per-arch builder blobs.
+
+on:
+  pull_request:
+    paths: &build_paths
+      - "**/*.c"
+      - "**/*.cc"
+      - "**/*.cpp"
+      - "**/*.cu"
+      - "**/*.cuh"
+      - "**/*.h"
+      - "**/*.hpp"
+      - "**/*.cmake"
+      - "**/CMakeLists.txt"
+      - "**/package.xml"
+      - "**/*.repos"
+      - "docker/Dockerfile"
+      - ".github/workflows/build.yml"
+  push:
+    branches: [art-jazzy]
+    paths: *build_paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/ci-deps
+
+jobs:
+  # Build the dependency image only if one for this exact Dockerfile doesn't already
+  # exist. Tag = hash of the Dockerfile, so an unchanged Dockerfile is a ~10s no-op.
+  deps-image:
+    runs-on: ubuntu-24.04
+    outputs:
+      ref: ${{ steps.tag.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: tag
+        run: echo "ref=$IMAGE:$(sha256sum docker/Dockerfile | cut -c1-12)" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Free disk space
+        run: |
+          sudo rm -rf /opt/hostedtoolcache /usr/local/lib/android /usr/share/dotnet \
+                      /opt/ghc /usr/local/.ghcup /usr/local/share/powershell /usr/share/swift || true
+          df -h /
+      - name: Build + push if missing
+        run: |
+          set -euxo pipefail
+          REF="${{ steps.tag.outputs.ref }}"
+          if docker manifest inspect "$REF" >/dev/null 2>&1; then
+            echo "Dependency image $REF already exists -- reusing."
+          else
+            docker build -t "$REF" -f docker/Dockerfile docker
+            docker push "$REF"
+          fi
+
+  compile:
+    needs: deps-image
+    runs-on: ubuntu-24.04
+    steps:
+      # container is pulled via `docker run` (not a job-level `container:`) so this
+      # cleanup can run FIRST -- otherwise the image pull fills the small runner disk.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /opt/hostedtoolcache /usr/local/lib/android /usr/share/dotnet \
+                      /opt/ghc /usr/local/.ghcup /usr/local/share/powershell /usr/share/swift \
+                      /usr/local/lib/node_modules || true
+          sudo docker system prune -af || true
+          df -h /
+
+      - name: Checkout isaac_ros
+        uses: actions/checkout@v4
+        with:
+          path: src/isaac_ros
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache ccache (small; the only Actions cache)
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: ccache-${{ runner.os }}-
+
+      - name: colcon build (all packages, ccache-accelerated) in the deps image
+        run: |
+          set -euxo pipefail
+          mkdir -p .ccache
+          docker run --rm \
+            -v "$PWD":/ws -w /ws \
+            -e CCACHE_DIR=/ws/.ccache -e CCACHE_MAXSIZE=2G -e CCACHE_COMPRESS=1 \
+            "${{ needs.deps-image.outputs.ref }}" bash -c '
+              set -euxo pipefail
+              source /opt/ros/jazzy/setup.bash
+              export CUDA_HOME=/usr/local/cuda
+              export PATH=/usr/local/cuda/bin:$PATH
+              rosdep update
+              # toolchain is baked; this only pulls light ROS deps
+              rosdep install --from-paths src --ignore-src -y --rosdistro jazzy \
+                --skip-keys "cuda cudart tensorrt libnvinfer libnvinfer-dev nvidia-encode nvidia-decode" || true
+              ccache -z || true
+              # *_models_install packages only download NGC assets (not a compile test) -- skip.
+              colcon build \
+                --packages-skip-regex ".*_models_install" \
+                --cmake-args -DCMAKE_BUILD_TYPE=Release \
+                  -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+                  -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+                  -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache \
+                --parallel-workers 2 \
+                --event-handlers console_direct+
+              ccache -s || true
+            '
+
+      - name: Restore ccache ownership for caching
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" .ccache 2>/dev/null || true

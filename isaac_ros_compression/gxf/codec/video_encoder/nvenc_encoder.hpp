@@ -37,6 +37,7 @@ struct NvencContext {
   void* nvenc_lib;
   NV_ENCODE_API_FUNCTION_LIST nvenc_api;
   void* encoder;
+  bool initialized = false;  // deferred-init guard (resolution auto-detect)
   
   // CUDA context
   CUcontext cu_context;
@@ -53,6 +54,9 @@ struct NvencContext {
   uint32_t level;
   uint32_t qp;
   uint32_t rate_control_mode;
+  uint32_t intra_refresh;
+  uint32_t vbv_buffer_frames;
+  uint32_t max_bitrate;
   
   // Input/output buffers
   std::vector<NV_ENC_REGISTERED_PTR> registered_resources;
