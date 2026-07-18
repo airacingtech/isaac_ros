@@ -1,8 +1,7 @@
-build_datetime: '2026-02-12T21:45:44.154128'
-git_branch: kevin/13_1
-git_commit_date: 2026-01-05 22:07:07 -0800
-git_commit_hash: 94d423d61c2334dbe4c4f1a0cdcf512843689475
-git_commit_message: The day GXF is supported on 22.04 or ART upgrades to 24.04, this
-  will come back alive
+build_datetime: '2026-07-18T06:48:57.657378'
+git_branch: art-jazzy
+git_commit_date: 2026-02-12 22:06:06 -1000
+git_commit_hash: 5990cc56037b4de3c02502a69de681c21029ae98
+git_commit_message: Remove big file
 git_workspace_dirty: 'Yes'
 version: 4.1.0
