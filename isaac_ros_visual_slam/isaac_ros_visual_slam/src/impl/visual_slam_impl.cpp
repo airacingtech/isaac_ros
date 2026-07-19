@@ -1150,7 +1150,7 @@ VisualSlamImpl::CuvslamInternalLocalizeInMapAsync(
       LocalizeInExistDbContext::Response response{boost::outcome_v2::failure(std::string(
               result.error_message))};
       if (result.data.has_value()) {
-        response = boost::outcome_v2::success<cuvslam::Pose>(result.data.value());
+        response = boost::outcome_v2::success(result.data.value());
       }
       localize_in_exist_db_context.response_promise.set_value(response);
   });
