@@ -97,6 +97,9 @@ if (!registrar) {
   result &= registrar->parameter(max_bitrate_, "max_bitrate",
                        "Peak bitrate for capped VBR (0 = use bitrate)",
                        "Hard ceiling; averageBitRate stays at bitrate", 0);
+  result &= registrar->parameter(monochrome_, "monochrome",
+                       "Encode luma only (flatten chroma to neutral gray)",
+                       "Grayscale stream; the full bit budget goes to luma", false);
   result &= registrar->parameter(config_, "config",
                        "Preset of parameters, select from pframe_cqp, iframe_cqp, custom",
                        "Preset of config",
@@ -172,6 +175,10 @@ gxf_result_t VideoEncoderRequest::start() {
   }
   
   // V4L2 backend initialization (original code)
+  if (monochrome_) {
+    GXF_LOG_WARNING(
+      "monochrome is only implemented for the NVENC backend; this V4L2 stream stays color");
+  }
   // Setting the RC mode and IDR interval parmeters for cuvid case.
   if (impl_->ctx->is_cuvid) {
     if (impl_->ctx->rate_control_mode == 0) {
@@ -380,7 +387,20 @@ gxf_result_t VideoEncoderRequest::encodeWithNvenc(
   // For NVENC, we need the input data as a CUDA device pointer in NV12 format
   void* cuda_input_ptr = const_cast<void*>(static_cast<const void*>(input_img->pointer()));
   uint32_t pitch = input_img_info.color_planes[0].stride;
-  
+
+  // NVENC has no 4:0:0 mode; neutral-gray chroma (0x80) compresses to near-zero
+  // bits, which is the practical monochrome H.264 stream.
+  if (monochrome_) {
+    const auto & uv_plane = input_img_info.color_planes[1];
+    cudaError_t result = cudaMemset2D(
+      static_cast<uint8_t*>(cuda_input_ptr) + uv_plane.offset, uv_plane.stride, 128,
+      uv_plane.width * uv_plane.bytes_per_pixel, uv_plane.height);
+    if (result != cudaSuccess) {
+      GXF_LOG_ERROR("Failed to flatten chroma plane: %s", cudaGetErrorString(result));
+      return GXF_FAILURE;
+    }
+  }
+
   // Encode the frame
   NvencEncoder encoder;
   if (encoder.encodeFrame(impl_->ctx->nvenc_ctx, cuda_input_ptr, pitch) != 0) {
