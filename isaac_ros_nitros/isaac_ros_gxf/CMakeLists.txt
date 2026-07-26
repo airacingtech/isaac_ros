@@ -19,7 +19,11 @@ cmake_minimum_required(VERSION 3.22.1)
 project(isaac_ros_gxf)
 
 # Add option for overriding GXF core library directory
-option(GXF_CORE_LIB_DIR_OVERRIDE "Override path for GXF core library directory" "")
+set(GXF_CORE_LIB_DIR_OVERRIDE "" CACHE STRING "Override path for GXF core library directory")
+set(GXF_CORE_INCLUDE_DIR_OVERRIDE "" CACHE STRING
+    "Override path for GXF core headers. Must match GXF_CORE_LIB_DIR_OVERRIDE: extensions
+     bake kGxfCoreVersion in at compile time and GXF refuses to load an extension built
+     against a different core version (GXF_FACTORY_INCOMPATIBLE).")
 
 execute_process(COMMAND uname -m COMMAND tr -d '\n' OUTPUT_VARIABLE ARCHITECTURE)
 message( STATUS "Architecture: ${ARCHITECTURE}" )
@@ -30,18 +34,30 @@ ament_auto_find_build_dependencies()
 add_library(${PROJECT_NAME} STATIC src/isaac_ros_gxf.cpp)
 
 # GXF core headers
+if(GXF_CORE_INCLUDE_DIR_OVERRIDE)
+  set(GXF_CORE_INCLUDE_DIR "${GXF_CORE_INCLUDE_DIR_OVERRIDE}")
+else()
+  set(GXF_CORE_INCLUDE_DIR gxf/core/include)
+endif()
+message(STATUS "isaac_ros_gxf: GXF headers = ${GXF_CORE_INCLUDE_DIR}")
 install(
-  DIRECTORY gxf/core/include/
+  DIRECTORY ${GXF_CORE_INCLUDE_DIR}/
   DESTINATION share/${PROJECT_NAME}/gxf/include/
 )
 
 # Install extensions directory
 if( ${ARCHITECTURE} STREQUAL "x86_64" )
-  install(DIRECTORY gxf/core/lib/gxf_x86_64_cuda_13_0/ DESTINATION share/${PROJECT_NAME}/gxf/lib)
-  install(FILES gxf/core/lib/gxf_x86_64_cuda_13_0/core/libgxf_core.so DESTINATION lib)
-  install(FILES gxf/core/lib/gxf_x86_64_cuda_13_0/logger/libgxf_logger.so DESTINATION lib)
-  install(FILES gxf/core/lib/gxf_x86_64_cuda_13_0/multimedia/libgxf_multimedia.so DESTINATION lib)
-  install(FILES gxf/core/lib/gxf_x86_64_cuda_13_0/cuda/libgxf_cuda.so DESTINATION lib)
+  if(GXF_CORE_LIB_DIR_OVERRIDE)
+    set(GXF_CORE_LIB_DIR "${GXF_CORE_LIB_DIR_OVERRIDE}")
+  else()
+    set(GXF_CORE_LIB_DIR gxf/core/lib/gxf_x86_64_cuda_13_0)
+  endif()
+  message(STATUS "isaac_ros_gxf: x86_64 GXF payload = ${GXF_CORE_LIB_DIR}")
+  install(DIRECTORY ${GXF_CORE_LIB_DIR}/ DESTINATION share/${PROJECT_NAME}/gxf/lib)
+  install(FILES ${GXF_CORE_LIB_DIR}/core/libgxf_core.so DESTINATION lib)
+  install(FILES ${GXF_CORE_LIB_DIR}/logger/libgxf_logger.so DESTINATION lib)
+  install(FILES ${GXF_CORE_LIB_DIR}/multimedia/libgxf_multimedia.so DESTINATION lib)
+  install(FILES ${GXF_CORE_LIB_DIR}/cuda/libgxf_cuda.so DESTINATION lib)
 elseif( ${ARCHITECTURE} STREQUAL "aarch64" )
   if(CMAKE_DEVICE STREQUAL "sbsa")
     set(GXF_CORE_LIB_DIR gxf/core/lib/gxf_aarch64_cuda_13_0/)
