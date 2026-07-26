@@ -18,6 +18,7 @@
 #ifndef ISAAC_ROS_NITROS__NITROS_SUBSCRIBER_HPP_
 #define ISAAC_ROS_NITROS__NITROS_SUBSCRIBER_HPP_
 
+#include <atomic>
 #include <memory>
 #include <string>
 #include <vector>
@@ -85,6 +86,11 @@ public:
 
   void setIsGxfRunning(const bool is_gxf_running);
 
+  // Gate incoming frames before they reach the GXF graph. Disabled means the underlying
+  // codelets never run, so the cost is dropped rather than merely hidden.
+  void setEnabled(const bool enabled) {enabled_ = enabled;}
+  bool getEnabled() const {return enabled_;}
+
   // Create a compatible subscriber
   void createCompatibleSubscriber();
 
@@ -109,6 +115,7 @@ public:
     const std::string data_format_name);
 
 private:
+  std::atomic<bool> enabled_{true};
   // Only either of the following two subscribers will be active after negotiation at runtime
 
   // A negotiated subscriber for receiving data from a negotiated topic channel

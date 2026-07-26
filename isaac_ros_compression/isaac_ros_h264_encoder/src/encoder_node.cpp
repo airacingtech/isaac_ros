@@ -106,14 +106,58 @@ EncoderNode::EncoderNode(const rclcpp::NodeOptions & options)
   intra_refresh_(declare_parameter<int32_t>("intra_refresh", 0)),
   vbv_buffer_frames_(declare_parameter<int32_t>("vbv_buffer_frames", 1)),
   max_bitrate_(declare_parameter<int32_t>("max_bitrate", 0)),
-  monochrome_(declare_parameter<bool>("monochrome", false))
+  monochrome_(declare_parameter<bool>("monochrome", false)),
+  enabled_(declare_parameter<bool>("enabled", true))
 {
   RCLCPP_DEBUG(get_logger(), "[EncoderNode] Constructor");
 
   registerSupportedType<nvidia::isaac_ros::nitros::NitrosImage>();
   registerSupportedType<nvidia::isaac_ros::nitros::NitrosCompressedImage>();
 
+  param_cb_ = add_on_set_parameters_callback(
+    [this](const std::vector<rclcpp::Parameter> & params) {
+      rcl_interfaces::msg::SetParametersResult result;
+      result.successful = true;
+      for (const auto & param : params) {
+        if (param.get_name() == "enabled") {
+          enabled_ = param.as_bool();
+          applyEnabled();
+          RCLCPP_INFO(
+            get_logger(), "[EncoderNode] compression %s",
+            enabled_ ? "enabled" : "disabled");
+        }
+      }
+      return result;
+    });
+
   startNitrosNode();
+
+  // The NITROS subscriber does not exist until the node has finished starting, so apply the
+  // initial value on the next spin rather than here. This is what makes launching with
+  // enabled:=false actually take effect.
+  enable_init_timer_ = create_wall_timer(
+    std::chrono::milliseconds(500), [this]() {
+      applyEnabled();
+      enable_init_timer_->cancel();
+    });
+}
+
+void EncoderNode::applyEnabled()
+{
+  // The input receiver as declared in config/nitros_encoder_node.yaml. findNitrosSubscriber
+  // matches on the full component identity, not on INPUT_COMPONENT_KEY.
+  const nvidia::gxf::optimizer::ComponentInfo input_component{
+    "nvidia::gxf::DoubleBufferReceiver",  // component_type_name
+    "data_receiver",                      // component_name
+    "color_converter"                     // entity_name
+  };
+  auto sub = findNitrosSubscriber(input_component);
+  if (sub == nullptr) {
+    RCLCPP_WARN(
+      get_logger(), "[EncoderNode] input subscriber not ready; 'enabled' not applied yet");
+    return;
+  }
+  sub->setEnabled(enabled_);
 }
 
 void EncoderNode::preLoadGraphCallback()
