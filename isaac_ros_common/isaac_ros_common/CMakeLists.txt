@@ -21,6 +21,9 @@ project(isaac_ros_common LANGUAGES C CXX)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
+# Must precede enable_language(CUDA): this package enables CUDA before loading its own
+# extras, so the toolkit has to be chosen first or nvcc-on-PATH wins.
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/isaac_ros_cuda_flavour.cmake)
 enable_language(CUDA)
 
 find_package(ament_cmake_auto REQUIRED)
@@ -35,10 +38,20 @@ find_package(vpi REQUIRED)
 
 # NVTX
 option(USE_NVTX "Enable NVTX markers for improved profiling (if available)" ON)
-if(USE_NVTX)
+# "if available" has to actually mean that. CUDA::nvtx3 only exists when the nvtx3 headers are
+# present in the selected toolkit, and they are not part of the minimal cudart/cublas/npp/cusolver
+# set -- so a toolkit without cuda-nvtx-<ver> installed made this fail at generate time with
+# 'links to target "CUDA::nvtx3" but the target was not found'. Profiling markers are optional;
+# a missing profiler must not break the build.
+if(USE_NVTX AND TARGET CUDA::nvtx3)
     add_definitions(-DUSE_NVTX)
     link_directories("${CUDA_TOOLKIT_ROOT_DIR}/lib64")
     link_libraries("CUDA::nvtx3")
+elseif(USE_NVTX)
+    message(WARNING
+      "NVTX markers disabled: the nvtx3 headers are not in ${CUDA_TOOLKIT_ROOT_DIR}. "
+      "Install cuda-nvtx-<ver> (tools/scripts/install_isaac_deps.sh does this) to re-enable "
+      "profiling markers.")
 endif()
 
 # vpi utilities

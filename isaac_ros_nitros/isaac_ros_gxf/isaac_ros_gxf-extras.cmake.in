@@ -34,6 +34,41 @@ set(ISAAC_ROS_GXF_PAYLOAD_VARIANT "@ISAAC_ROS_GXF_PAYLOAD_VARIANT@")
 set(ISAAC_ROS_GXF_PAYLOAD_INCLUDE "@ISAAC_ROS_GXF_PAYLOAD_INCLUDE@")
 set(ISAAC_ROS_GXF_PAYLOAD_REASON "@ISAAC_ROS_GXF_PAYLOAD_REASON@")
 
+# Pin the CUDA toolkit to the payload's CUDA major, for every package that depends on isaac_ros_gxf.
+#
+# This is done here, rather than only in isaac_ros_common's extras, because the variant literal is
+# already present in this file -- no cross-package lookup to get wrong. Deriving it by scraping the
+# installed extras from isaac_ros_common failed silently for gxf_isaac_tensorops and
+# gxf_isaac_ros_unet, which then compiled against whatever nvcc was first on PATH and ended up on
+# CUDA 13 while the rest of the stack was on 12.6 -- the exact mixed-runtime split the payload
+# selection exists to prevent.
+#
+# Opt out with -DISAAC_ROS_CUDA_PIN=OFF.
+if(NOT DEFINED ISAAC_ROS_CUDA_PIN)
+  set(ISAAC_ROS_CUDA_PIN ON)
+endif()
+if(ISAAC_ROS_CUDA_PIN AND ISAAC_ROS_GXF_PAYLOAD_VARIANT MATCHES "cuda_([0-9]+)_([0-9]+)$")
+  set(_isaac_cuda_ver "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}")
+  set(_isaac_cuda_root "/usr/local/cuda-${_isaac_cuda_ver}")
+  if(EXISTS "${_isaac_cuda_root}/bin/nvcc")
+    # FORCE: a sibling package's find_package(CUDA) may already have populated these from PATH.
+    set(CUDA_TOOLKIT_ROOT_DIR "${_isaac_cuda_root}" CACHE PATH
+        "CUDA toolkit matching the GXF payload" FORCE)
+    set(CUDAToolkit_ROOT "${_isaac_cuda_root}" CACHE PATH
+        "CUDA toolkit matching the GXF payload" FORCE)
+    set(CMAKE_CUDA_COMPILER "${_isaac_cuda_root}/bin/nvcc" CACHE FILEPATH
+        "nvcc matching the GXF payload" FORCE)
+    message(STATUS
+      "isaac_ros_gxf: CUDA ${_isaac_cuda_ver} pinned from payload "
+      "${ISAAC_ROS_GXF_PAYLOAD_VARIANT} -> ${_isaac_cuda_root}")
+  else()
+    message(FATAL_ERROR
+      "isaac_ros_gxf: payload ${ISAAC_ROS_GXF_PAYLOAD_VARIANT} requires CUDA ${_isaac_cuda_ver}, "
+      "but ${_isaac_cuda_root}/bin/nvcc is missing.\n"
+      "Install it: sudo tools/scripts/install_isaac_deps.sh -y")
+  endif()
+endif()
+
 if(ISAAC_ROS_GXF_PAYLOAD_VARIANT AND NOT GXF_EXT_LIB_SUBDIR)
   # The extension CMakeLists all honour GXF_EXT_LIB_SUBDIR, so setting it here is enough to steer
   # every one of them without patching each package individually.

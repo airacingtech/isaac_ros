@@ -30,8 +30,25 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
   set(GXF_EXT_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/gxf_aarch64_cuda_13_0")
   set(NVDS_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/nvds/lib/gxf_aarch64_cuda_13_0")
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-  set(GXF_EXT_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/gxf_x86_64_cuda_13_0")
-  set(NVDS_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/nvds/lib/gxf_x86_64_cuda_13_0")
+  # TRITON_FLAVOUR_GUARD
+  # Honour the payload flavour isaac_ros_gxf selected, like every other gxf_isaac_* extension.
+  # Triton only ships cuda_13_0 upstream, so on a cuda_12_6 host there is nothing valid to install --
+  # and installing the 13_0 binaries anyway would put a second CUDA runtime into the stack.
+  if(GXF_EXT_LIB_SUBDIR)
+    set(_triton_flavour "${GXF_EXT_LIB_SUBDIR}")
+  else()
+    set(_triton_flavour "gxf_x86_64_cuda_13_0")
+  endif()
+  if(NOT IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib/${_triton_flavour}")
+    message(FATAL_ERROR
+      "gxf_isaac_triton has no payload for ${_triton_flavour} -- upstream ships cuda_13_0 only.\n"
+      "Nothing in the ART perception path uses the Triton backend (isaac_ros_tensor_rt is used "
+      "instead), so exclude it from the build:\n"
+      "  colcon build --packages-skip gxf_isaac_triton isaac_ros_triton\n"
+      "Building it anyway would install CUDA 13 binaries alongside a CUDA 12 stack.")
+  endif()
+  set(GXF_EXT_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/${_triton_flavour}")
+  set(NVDS_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/nvds/lib/${_triton_flavour}")
 else()
   message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()

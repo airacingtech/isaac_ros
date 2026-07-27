@@ -34,6 +34,10 @@ if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
 endif()
 message( STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}" )
 
+# Pin the CUDA toolkit to the NITROS/GXF payload's CUDA major before any CUDA lookup, so
+# every Isaac ROS package compiles against the same runtime as the prebuilt GXF binaries.
+include(${CMAKE_CURRENT_LIST_DIR}/isaac_ros_cuda_flavour.cmake)
+
 # for #include <cuda_runtime.h>
 set(CUDA_MIN_VERSION "11.4")
 find_package(CUDA REQUIRED)
