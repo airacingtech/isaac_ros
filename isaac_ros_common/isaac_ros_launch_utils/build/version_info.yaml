@@ -1,7 +1,7 @@
-build_datetime: '2026-07-19T08:25:45.160335'
-git_branch: kevin/monochrome
-git_commit_date: 2026-07-19 05:25:11 -1000
-git_commit_hash: 8abfa6837df909505540e3391c1e01d2a4e96d24
-git_commit_message: Boost compilation issue 22.04
+build_datetime: '2026-07-27T11:22:08.360810'
+git_branch: kevin/av22
+git_commit_date: 2026-07-27 10:49:23 -0700
+git_commit_hash: 2c429b305077591c3312698fc4863d0e098c00b9
+git_commit_message: Support for CUDA 12_6
 git_workspace_dirty: 'Yes'
 version: 4.1.0

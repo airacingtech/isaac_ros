@@ -41,15 +41,48 @@ endif()
 # cuVSLAM and cuApriltags (register paths and install)
 
 # Determine the architecture
+#
+# cuVSLAM ships the same per-CUDA-major split as the GXF payload and carries the same glibc floor
+# with it (lib_x86_64_cuda_13_0 needs glibc 2.38; lib_x86_64_cuda_12_6 needs only 2.34). Hardcoding
+# 13_0 here makes isaac_ros_visual_slam unbuildable on Ubuntu 22.04 with exactly the undefined-
+# reference failure the GXF payload selection exists to prevent, so follow the same decision.
+#
+# isaac_ros_gxf publishes the flavour it selected as e.g. "gxf_x86_64_cuda_12_6"; the CUDA suffix is
+# the part these directory names share. Fall back to upstream's default when that is unavailable.
+function(_nitros_cuda_suffix out_var)
+    set(_suffix "")
+    if(ISAAC_ROS_GXF_PAYLOAD_VARIANT MATCHES "cuda_([0-9]+_[0-9]+)$")
+        set(_suffix "${CMAKE_MATCH_1}")
+    endif()
+    set(${out_var} "${_suffix}" PARENT_SCOPE)
+endfunction()
+
+# Pick lib_<arch>_cuda_<suffix> when that flavour exists on disk, else keep `fallback`.
+function(_nitros_pick_lib_dir base arch fallback out_var)
+    _nitros_cuda_suffix(_suffix)
+    set(_chosen "${fallback}")
+    if(_suffix)
+        set(_candidate "${base}/lib_${arch}_cuda_${_suffix}")
+        if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${_candidate}")
+            set(_chosen "${_candidate}")
+        endif()
+    endif()
+    set(${out_var} "${_chosen}" PARENT_SCOPE)
+endfunction()
+
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
     set(CUVSLAM_LIB_PATH "lib/cuvslam/lib_aarch64_jetpack70")
     set(CUAPRILTAGS_LIB_PATH "lib/cuapriltags/lib_aarch64_jetpack61")
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-    set(CUVSLAM_LIB_PATH "lib/cuvslam/lib_x86_64_cuda_13_0")
-    set(CUAPRILTAGS_LIB_PATH "lib/cuapriltags/lib_x86_64_cuda_12_6")
+    _nitros_pick_lib_dir("lib/cuvslam" "x86_64" "lib/cuvslam/lib_x86_64_cuda_13_0" CUVSLAM_LIB_PATH)
+    # cuApriltags only ships a 12_6 x86_64 build, so this stays pinned unless a match appears.
+    _nitros_pick_lib_dir("lib/cuapriltags" "x86_64" "lib/cuapriltags/lib_x86_64_cuda_12_6"
+                         CUAPRILTAGS_LIB_PATH)
 else()
     message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
+message(STATUS "isaac_ros_nitros: cuVSLAM = ${CUVSLAM_LIB_PATH}")
+message(STATUS "isaac_ros_nitros: cuApriltags = ${CUAPRILTAGS_LIB_PATH}")
 
 # Install exported libraries
 install(FILES ${CUAPRILTAGS_LIB_PATH}/libcuapriltags.a

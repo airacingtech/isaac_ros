@@ -23,17 +23,21 @@ message(STATUS "Loading isaac_ros_gxf extras")
 ament_index_get_resource(ISAAC_ROS_GXF_CMAKE_PATH isaac_ros_gxf_cmake_path isaac_ros_gxf)
 list(APPEND CMAKE_MODULE_PATH "${ISAAC_ROS_GXF_CMAKE_PATH}/modules")
 
-# Which prebuilt GXF payload flavour isaac_ros_gxf installed for this host. Every gxf_isaac_*
-# extension ships the same per-flavour split and must pick the matching one -- a GXF 4.1.0 core
-# will refuse to load a 5.1.0 extension at runtime (GXF_FACTORY_INCOMPATIBLE). Consuming the
+# Which prebuilt GXF payload flavour isaac_ros_gxf installed for this host. Substituted in when this
+# file is configured, so the decision travels inside the package's existing cmake config rather than
+# in a separate generated file.
+#
+# Every gxf_isaac_* extension ships the same per-flavour split and must pick the matching one: a GXF
+# 4.1.0 core refuses to load a 5.1.0 extension at runtime (GXF_FACTORY_INCOMPATIBLE). Consuming the
 # recorded decision keeps that consistent without each package re-running the link probe.
-if(EXISTS "${ISAAC_ROS_GXF_CMAKE_PATH}/isaac_ros_gxf-payload.cmake")
-  include("${ISAAC_ROS_GXF_CMAKE_PATH}/isaac_ros_gxf-payload.cmake")
-  if(ISAAC_ROS_GXF_PAYLOAD_VARIANT AND NOT GXF_EXT_LIB_SUBDIR)
-    # The extension CMakeLists all honour GXF_EXT_LIB_SUBDIR, so setting it here is enough to
-    # steer every one of them without patching each package individually.
-    set(GXF_EXT_LIB_SUBDIR "${ISAAC_ROS_GXF_PAYLOAD_VARIANT}")
-  endif()
+set(ISAAC_ROS_GXF_PAYLOAD_VARIANT "@ISAAC_ROS_GXF_PAYLOAD_VARIANT@")
+set(ISAAC_ROS_GXF_PAYLOAD_INCLUDE "@ISAAC_ROS_GXF_PAYLOAD_INCLUDE@")
+set(ISAAC_ROS_GXF_PAYLOAD_REASON "@ISAAC_ROS_GXF_PAYLOAD_REASON@")
+
+if(ISAAC_ROS_GXF_PAYLOAD_VARIANT AND NOT GXF_EXT_LIB_SUBDIR)
+  # The extension CMakeLists all honour GXF_EXT_LIB_SUBDIR, so setting it here is enough to steer
+  # every one of them without patching each package individually.
+  set(GXF_EXT_LIB_SUBDIR "${ISAAC_ROS_GXF_PAYLOAD_VARIANT}")
   message(STATUS
     "isaac_ros_gxf: using payload ${ISAAC_ROS_GXF_PAYLOAD_VARIANT} "
     "(GXF_EXT_LIB_SUBDIR=${GXF_EXT_LIB_SUBDIR})")
