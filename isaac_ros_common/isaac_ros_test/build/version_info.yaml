@@ -1,7 +1,32 @@
-build_datetime: '2026-07-19T08:36:18.517388'
-git_branch: kevin/monochrome
-git_commit_date: 2026-07-19 05:25:11 -1000
-git_commit_hash: 8abfa6837df909505540e3391c1e01d2a4e96d24
-git_commit_message: Boost compilation issue 22.04
+build_datetime: '2026-07-27T10:33:53.064631'
+git_branch: kevin/av22
+git_commit_date: 2026-07-26 12:30:21 -0700
+git_commit_hash: 134148ca18805fc53293ae3c31eb39015ee44d95
+git_commit_message: "feat(gxf): allow the GXF core payload to be overridden for Ubuntu\
+  \ 22.04\n\nIsaac ROS 4.1 ships prebuilt GXF binaries built on Ubuntu 24.04: they\
+  \ need\nGLIBC_2.38 and GLIBCXX_3.4.32, while the AV24 is Ubuntu 22.04 (glibc 2.35,\n\
+  GLIBCXX_3.4.30). 37 of 52 installed GXF .so were unloadable there, libgxf_core.so\n\
+  included, so no NITROS node could run at all. It stayed hidden because shared\n\
+  library links tolerate undefined symbols and every isaac_ros_* package here builds\n\
+  only components -- the first executables to reach GXF (yolov8 ros_segmentation,\n\
+  avt_vimba_camera mono_camera_exec) were the only things that failed to link.\n\n\
+  release-3.2 / gxf_x86_64_cuda_12_6 is the only 22.04-clean Isaac GXF that exists\n\
+  (max GLIBC_2.34, GLIBCXX_3.4.29); every release from 4.0 on is 24.04-only.\n\nHeaders\
+  \ must be selectable alongside the libs, not just the libs: extensions bake\nkGxfCoreVersion\
+  \ in at compile time -- \"4.1.0\" in release-3.2 vs \"5.1.0\" in\nrelease-4.1 --\
+  \ and GXF rejects an extension built against a different core version\nwith GXF_FACTORY_INCOMPATIBLE.\n\
+  \n- isaac_ros_gxf: wire up GXF_CORE_LIB_DIR_OVERRIDE, which upstream declared but\n\
+  \  never used on x86_64, and change it from option() (a BOOL) to a STRING cache\n\
+  \  entry, which is what a path needs. Add GXF_CORE_INCLUDE_DIR_OVERRIDE.\n- gxf_isaac_{atlas,gxf_helpers,message_compositor,messages,optimizer,sight}:\
+  \ add\n  GXF_EXT_LIB_SUBDIR to select the payload subdirectory.\n- add the release-3.2\
+  \ GXF headers as gxf/core/include_cuda_12_6.\n\nAll overrides default to the existing\
+  \ gxf_x86_64_cuda_13_0 payload, so omitting\nthem reproduces the previous build\
+  \ exactly.\n\nThe matching .so payload is NOT committed: *.so is LFS-tracked here\
+  \ and it is\n~137 MB of artifacts byte-identical to upstream. Fetch it with\n\n\
+  \  git clone --depth 1 -b release-3.2 --filter=blob:none --no-checkout \\\n    https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_nitros.git\n\
+  \  git sparse-checkout set isaac_ros_gxf/gxf/core/lib/gxf_x86_64_cuda_12_6 \\\n\
+  \    isaac_ros_gxf_extensions/gxf_isaac_{atlas,gxf_helpers,message_compositor,messages,optimizer,sight}\n\
+  \  git lfs pull\n\nSee race_common tools/av24/ISAAC_NITROS_UBUNTU2204.md for the\
+  \ full writeup."
 git_workspace_dirty: 'Yes'
 version: 4.1.0
