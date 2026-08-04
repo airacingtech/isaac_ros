@@ -439,6 +439,13 @@ void NitrosSubscriber::subscriberCallback(
     config_.callback(context_, msg_base);
   }
 
+  if (!enabled_) {
+    // Gated off: return before handing the entity to GXF so the downstream codelets
+    // (colour conversion, NVENC, ...) do no work at all for this frame.
+    nvtxRangePopWrapper();
+    return;
+  }
+
   if (use_gxf_receiver_ && gxf_receiver_ptr_ != nullptr && is_gxf_running_) {
     // Push the message to the associated gxf receiver if existed
     pushEntity(msg_base.handle, false);

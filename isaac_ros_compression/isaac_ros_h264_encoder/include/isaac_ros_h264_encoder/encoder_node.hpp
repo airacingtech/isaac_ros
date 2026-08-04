@@ -60,6 +60,15 @@ private:
   int32_t intra_refresh_;
   int32_t vbv_buffer_frames_;
   int32_t max_bitrate_;
+  bool monochrome_;
+
+  // Runtime on/off switch. Set false and incoming frames are dropped before the GXF graph,
+  // so NVENC does no work and nothing is published on image_compressed:
+  //     ros2 param set /<encoder_node> enabled false
+  bool enabled_;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_cb_;
+  void applyEnabled();
+  rclcpp::TimerBase::SharedPtr enable_init_timer_;
 };
 
 }  // namespace h264_encoder

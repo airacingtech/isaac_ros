@@ -150,6 +150,7 @@ class VideoEncoderRequest : public gxf::Codelet {
   gxf::Parameter<int32_t> intra_refresh_;
   gxf::Parameter<int32_t> vbv_buffer_frames_;
   gxf::Parameter<int32_t> max_bitrate_;
+  gxf::Parameter<bool> monochrome_;
   gxf::Parameter<uint32_t> qp_;
   gxf::Parameter<int32_t> hw_preset_type_;
   gxf::Parameter<int32_t> level_;

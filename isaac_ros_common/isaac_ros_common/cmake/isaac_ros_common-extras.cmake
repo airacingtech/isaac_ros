@@ -65,6 +65,29 @@ if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
 endif()
 message(STATUS "CUDA architectures: ${CMAKE_CUDA_ARCHITECTURES}")
 
+# FindCUDAToolkit only defines the header-only CUDA::nvtx3 target from CMake 3.25;
+# replicate its definition on older CMake (Ubuntu 22.04 ships 3.22).
+if(NOT TARGET CUDA::nvtx3)
+  find_path(NVTX3_INCLUDE_DIR nvtx3/nvToolsExt.h HINTS ${CUDA_INCLUDE_DIRS})
+  if(NVTX3_INCLUDE_DIR)
+    add_library(CUDA::nvtx3 INTERFACE IMPORTED)
+    set_target_properties(CUDA::nvtx3 PROPERTIES
+      INTERFACE_INCLUDE_DIRECTORIES "${NVTX3_INCLUDE_DIR}"
+      INTERFACE_LINK_LIBRARIES "${CMAKE_DL_LIBS}")
+  endif()
+endif()
+
+# VPI debs install under /opt/nvidia/vpi<N> without registering with CMake's default
+# search paths; pick the newest installed version unless the caller already set vpi_DIR.
+if(NOT vpi_DIR)
+  file(GLOB vpi_config_dirs "/opt/nvidia/vpi*/lib/*/cmake/vpi")
+  if(vpi_config_dirs)
+    list(SORT vpi_config_dirs)
+    list(GET vpi_config_dirs -1 vpi_DIR)
+    message(STATUS "Using VPI from: ${vpi_DIR}")
+  endif()
+endif()
+
 # Set the DEVICE for cmake
 # This is used to determine the architecture and the library path
 if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")

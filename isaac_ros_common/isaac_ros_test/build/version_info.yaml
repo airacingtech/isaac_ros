@@ -1,8 +1,7 @@
-build_datetime: '2026-02-12T21:45:44.154128'
-git_branch: kevin/13_1
-git_commit_date: 2026-01-05 22:07:07 -0800
-git_commit_hash: 94d423d61c2334dbe4c4f1a0cdcf512843689475
-git_commit_message: The day GXF is supported on 22.04 or ART upgrades to 24.04, this
-  will come back alive
+build_datetime: '2026-07-19T08:36:18.517388'
+git_branch: kevin/monochrome
+git_commit_date: 2026-07-19 05:25:11 -1000
+git_commit_hash: 8abfa6837df909505540e3391c1e01d2a4e96d24
+git_commit_message: Boost compilation issue 22.04
 git_workspace_dirty: 'Yes'
 version: 4.1.0
