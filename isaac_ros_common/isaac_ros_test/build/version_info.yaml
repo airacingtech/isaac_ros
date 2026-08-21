@@ -1,7 +1,7 @@
-build_datetime: '2026-07-19T08:36:18.517388'
+build_datetime: '2026-08-21T11:13:08.923789'
 git_branch: kevin/monochrome
-git_commit_date: 2026-07-19 05:25:11 -1000
-git_commit_hash: 8abfa6837df909505540e3391c1e01d2a4e96d24
-git_commit_message: Boost compilation issue 22.04
+git_commit_date: 2026-07-26 00:05:54 -1000
+git_commit_hash: 4500f705a442a0fd8a5a9167fbda95460e35decb
+git_commit_message: Param enabled encoding
 git_workspace_dirty: 'Yes'
 version: 4.1.0

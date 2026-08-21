@@ -26,7 +26,7 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
   <depend>rclcpp</depend>
   <depend>libnvvpi4</depend>
   <depend>isaac_ros_gxf</depend>
-
+  <depend>magic_enum</depend>
   <build_depend>isaac_ros_common</build_depend>
   <build_depend>vpi4-dev</build_depend>
   <build_export_depend>git</build_export_depend>
