@@ -37,6 +37,32 @@ install(
 
 # Install extensions directory
 if( ${ARCHITECTURE} STREQUAL "x86_64" )
+  # The vendored payload is prebuilt on Ubuntu 24.04 (glibc 2.38). Refuse to
+  # install a payload the host cannot link: otherwise this package builds fine
+  # and every downstream consumer fails at link or launch. On jammy, run
+  # ~/ART/compat/patch_gxf_glibc.sh over this source tree and re-configure.
+  set(_gxf_payload ${CMAKE_CURRENT_SOURCE_DIR}/gxf/core/lib/gxf_x86_64_cuda_13_0)
+  execute_process(
+    COMMAND env -u LD_LIBRARY_PATH bash -c "echo 'int main(){return 0;}' | ${CMAKE_CXX_COMPILER} -x c++ - -x none -o /dev/null -Wl,--no-as-needed ${_gxf_payload}/core/libgxf_core.so ${_gxf_payload}/multimedia/libgxf_multimedia.so -Wl,-rpath-link,${_gxf_payload}/logger -Wl,-rpath-link,${_gxf_payload}/core"
+    RESULT_VARIABLE _gxf_probe_rc OUTPUT_QUIET ERROR_VARIABLE _gxf_probe_err)
+  if(NOT _gxf_probe_rc EQUAL 0)
+    message(FATAL_ERROR "GXF cuda_13_0 payload cannot link on this host "
+      "(too-new glibc/libstdc++ requirements in the prebuilt .so files). "
+      "Run ~/ART/compat/patch_gxf_glibc.sh and re-build.\n${_gxf_probe_err}")
+  endif()
+
+  # Jammy compat: the payload references a few glibc-2.38 / libstdc++-13
+  # symbols (see compat/compat_shim.cpp). patch_gxf_glibc.sh clears their
+  # version requirements and adds libisoc23_compat.so as a NEEDED entry, so
+  # build and install the shim here -- consumers then resolve it from this
+  # package's lib dir with no environment setup.
+  add_library(isoc23_compat SHARED compat/compat_shim.cpp)
+  install(TARGETS isoc23_compat LIBRARY DESTINATION lib)
+
+  # The payload links libcudart.so.13; expose the CUDA 13 runtime to every
+  # workspace process via an ament env hook (applied by install/setup.bash).
+  ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/env-hooks/cuda13_runtime.dsv.in")
+
   install(DIRECTORY gxf/core/lib/gxf_x86_64_cuda_13_0/ DESTINATION share/${PROJECT_NAME}/gxf/lib)
   install(FILES gxf/core/lib/gxf_x86_64_cuda_13_0/core/libgxf_core.so DESTINATION lib)
   install(FILES gxf/core/lib/gxf_x86_64_cuda_13_0/logger/libgxf_logger.so DESTINATION lib)

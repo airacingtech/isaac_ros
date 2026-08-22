@@ -16,6 +16,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 cmake_minimum_required(VERSION 3.22.1)
+# nvcc is not on PATH on the AV24; default to the toolkit matching the vendored
+# cuda_13_0 GXF payload. Override with CUDACXX or -DCMAKE_CUDA_COMPILER.
+if(NOT DEFINED CMAKE_CUDA_COMPILER AND NOT DEFINED ENV{CUDACXX} AND EXISTS "/usr/local/cuda-13.0/bin/nvcc")
+    set(CMAKE_CUDA_COMPILER "/usr/local/cuda-13.0/bin/nvcc")
+    # Old-style FindCUDA resolves the /usr/local/cuda symlink (12.6 on the AV24);
+    # keep headers and libs on the same toolkit as nvcc.
+    set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda-13.0")
+endif()
+
 project(gxf_isaac_ros_unet LANGUAGES C CXX)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
