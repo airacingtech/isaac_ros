@@ -1,7 +1,7 @@
-build_datetime: '2026-07-19T08:25:45.160335'
+build_datetime: '2026-09-04T15:00:17.409096'
 git_branch: kevin/monochrome
-git_commit_date: 2026-07-19 05:25:11 -1000
-git_commit_hash: 8abfa6837df909505540e3391c1e01d2a4e96d24
-git_commit_message: Boost compilation issue 22.04
+git_commit_date: 2026-09-04 13:02:52 -0700
+git_commit_hash: 2fae2e3a8ced641ced14e19ab80e426bb6811ad1
+git_commit_message: Fix shim issue
 git_workspace_dirty: 'Yes'
 version: 4.1.0

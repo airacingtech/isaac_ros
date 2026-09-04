@@ -1,7 +1,7 @@
-build_datetime: '2026-09-04T12:22:36.145466'
+build_datetime: '2026-09-04T15:00:45.045254'
 git_branch: kevin/monochrome
-git_commit_date: 2026-08-22 07:39:13 -0700
-git_commit_hash: 6b3d75e6898fa5274f1f62b95003f01e36f04b6f
-git_commit_message: compatibility with av24 22.04
+git_commit_date: 2026-09-04 13:02:52 -0700
+git_commit_hash: 2fae2e3a8ced641ced14e19ab80e426bb6811ad1
+git_commit_message: Fix shim issue
 git_workspace_dirty: 'Yes'
 version: 4.1.0
