@@ -39,16 +39,30 @@ install(
 if( ${ARCHITECTURE} STREQUAL "x86_64" )
   # The vendored payload is prebuilt on Ubuntu 24.04 (glibc 2.38). Refuse to
   # install a payload the host cannot link: otherwise this package builds fine
-  # and every downstream consumer fails at link or launch. On jammy, run
-  # ~/ART/compat/patch_gxf_glibc.sh over this source tree and re-configure.
+  # and every downstream consumer fails at link or launch.
   set(_gxf_payload ${CMAKE_CURRENT_SOURCE_DIR}/gxf/core/lib/gxf_x86_64_cuda_13_0)
+
+  set(_gxf_compat_dir ${CMAKE_CURRENT_BINARY_DIR}/compat)
+  file(MAKE_DIRECTORY ${_gxf_compat_dir})
   execute_process(
-    COMMAND env -u LD_LIBRARY_PATH bash -c "echo 'int main(){return 0;}' | ${CMAKE_CXX_COMPILER} -x c++ - -x none -o /dev/null -Wl,--no-as-needed ${_gxf_payload}/core/libgxf_core.so ${_gxf_payload}/multimedia/libgxf_multimedia.so -Wl,-rpath-link,${_gxf_payload}/logger -Wl,-rpath-link,${_gxf_payload}/core"
+    COMMAND ${CMAKE_CXX_COMPILER} -shared -fPIC -O2
+            ${CMAKE_CURRENT_SOURCE_DIR}/compat/compat_shim.cpp
+            -o ${_gxf_compat_dir}/libisoc23_compat.so
+    RESULT_VARIABLE _gxf_shim_rc OUTPUT_QUIET ERROR_VARIABLE _gxf_shim_err)
+  if(NOT _gxf_shim_rc EQUAL 0)
+    message(FATAL_ERROR "Failed to build compat/compat_shim.cpp, which the GXF "
+      "payload needs as libisoc23_compat.so.\n${_gxf_shim_err}")
+  endif()
+
+  execute_process(
+    COMMAND env -u LD_LIBRARY_PATH bash -c "echo 'int main(){return 0;}' | ${CMAKE_CXX_COMPILER} -x c++ - -x none -o /dev/null -Wl,--no-as-needed ${_gxf_payload}/core/libgxf_core.so ${_gxf_payload}/multimedia/libgxf_multimedia.so -Wl,-rpath-link,${_gxf_payload}/logger -Wl,-rpath-link,${_gxf_payload}/core -Wl,-rpath-link,${_gxf_compat_dir}"
     RESULT_VARIABLE _gxf_probe_rc OUTPUT_QUIET ERROR_VARIABLE _gxf_probe_err)
   if(NOT _gxf_probe_rc EQUAL 0)
     message(FATAL_ERROR "GXF cuda_13_0 payload cannot link on this host "
       "(too-new glibc/libstdc++ requirements in the prebuilt .so files). "
-      "Run ~/ART/compat/patch_gxf_glibc.sh and re-build.\n${_gxf_probe_err}")
+      "This drop's .so files still carry symbol-version requirements this host "
+      "cannot satisfy; they must be patched to bind the unversioned definitions "
+      "in compat/compat_shim.cpp, which lists them.\n${_gxf_probe_err}")
   endif()
 
   # Jammy compat: the payload references a few glibc-2.38 / libstdc++-13

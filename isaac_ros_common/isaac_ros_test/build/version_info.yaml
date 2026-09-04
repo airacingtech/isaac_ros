@@ -1,7 +1,7 @@
-build_datetime: '2026-08-22T07:34:37.005403'
+build_datetime: '2026-09-04T12:22:36.145466'
 git_branch: kevin/monochrome
-git_commit_date: 2026-07-26 00:05:54 -1000
-git_commit_hash: 4500f705a442a0fd8a5a9167fbda95460e35decb
-git_commit_message: Param enabled encoding
+git_commit_date: 2026-08-22 07:39:13 -0700
+git_commit_hash: 6b3d75e6898fa5274f1f62b95003f01e36f04b6f
+git_commit_message: compatibility with av24 22.04
 git_workspace_dirty: 'Yes'
 version: 4.1.0
