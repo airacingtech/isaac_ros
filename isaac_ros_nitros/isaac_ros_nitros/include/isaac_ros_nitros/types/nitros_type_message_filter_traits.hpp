@@ -29,8 +29,8 @@
 #include "isaac_ros_nitros/types/type_utility.hpp"
 #include "std_msgs/msg/header.hpp"
 
-#include "message_filters/message_traits.h"
-#include "message_filters/subscriber.h"
+#include "message_filters/message_traits.hpp"
+#include "message_filters/subscriber.hpp"
 
 // Nitros type support for message_filters package
 // https://github.com/ros2/message_filters.git

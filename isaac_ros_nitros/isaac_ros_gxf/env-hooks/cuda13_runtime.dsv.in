@@ -1,1 +1,1 @@
-prepend-non-duplicate;LD_LIBRARY_PATH;/usr/local/cuda-13.0/lib64
+prepend-non-duplicate;LD_LIBRARY_PATH;@ISAAC_ROS_CUDA13_LIB_DIR@

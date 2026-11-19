@@ -32,8 +32,8 @@
 #include "isaac_ros_nitros/types/type_adapter_nitros_context.hpp"
 
 #include "rclcpp/rclcpp.hpp"
-#include "tf2/LinearMath/Quaternion.h"
-#include "tf2/LinearMath/Transform.h"
+#include "tf2/LinearMath/Quaternion.hpp"
+#include "tf2/LinearMath/Transform.hpp"
 
 namespace
 {

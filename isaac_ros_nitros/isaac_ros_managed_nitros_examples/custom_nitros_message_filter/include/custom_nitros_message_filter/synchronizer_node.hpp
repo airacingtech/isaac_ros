@@ -21,9 +21,9 @@
 #include <memory>
 
 #include "rclcpp/rclcpp.hpp"
-#include "message_filters/subscriber.h"
-#include "message_filters/synchronizer.h"
-#include "message_filters/sync_policies/exact_time.h"
+#include "message_filters/subscriber.hpp"
+#include "message_filters/synchronizer.hpp"
+#include "message_filters/sync_policies/exact_time.hpp"
 
 #include "custom_nitros_message_filter_interfaces/msg/sync_status.hpp"
 #include "isaac_ros_managed_nitros/managed_nitros_message_filters_subscriber.hpp"

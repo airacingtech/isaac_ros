@@ -18,8 +18,8 @@
 #ifndef ISAAC_ROS_NITROS_TOPIC_TOOLS__ISAAC_ROS_NITROS_CAMERA_DROP_NODE_HPP_
 #define ISAAC_ROS_NITROS_TOPIC_TOOLS__ISAAC_ROS_NITROS_CAMERA_DROP_NODE_HPP_
 
-#include <message_filters/subscriber.h>
-#include <message_filters/sync_policies/exact_time.h>
+#include <message_filters/subscriber.hpp>
+#include <message_filters/sync_policies/exact_time.hpp>
 #include <memory>
 #include <string>
 #include <vector>

@@ -18,9 +18,9 @@
 #ifndef ISAAC_ROS_IMAGE_PROC__ALPHA_BLEND_NODE_HPP_
 #define ISAAC_ROS_IMAGE_PROC__ALPHA_BLEND_NODE_HPP_
 
-#include <message_filters/subscriber.h>
-#include <message_filters/synchronizer.h>
-#include <message_filters/sync_policies/exact_time.h>
+#include <message_filters/subscriber.hpp>
+#include <message_filters/synchronizer.hpp>
+#include <message_filters/sync_policies/exact_time.hpp>
 
 #include <memory>
 

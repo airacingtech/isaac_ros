@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <message_filters/subscriber.h>
-#include <message_filters/sync_policies/exact_time.h>
+#include <message_filters/subscriber.hpp>
+#include <message_filters/sync_policies/exact_time.hpp>
 #include <memory>
 #include <string>
 #include <vector>

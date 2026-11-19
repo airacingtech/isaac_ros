@@ -23,8 +23,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/header.hpp"
-#include "message_filters/synchronizer.h"
-#include "message_filters/sync_policies/exact_time.h"
+#include "message_filters/synchronizer.hpp"
+#include "message_filters/sync_policies/exact_time.hpp"
 
 #include "isaac_ros_common/qos.hpp"
 #include "isaac_ros_managed_nitros/managed_nitros_publisher.hpp"

@@ -58,7 +58,7 @@ void NitrosPublisherWaitable::trigger()
   nvtxRangePopWrapper();
 }
 
-bool NitrosPublisherWaitable::is_ready(rcl_wait_set_t * wait_set)
+bool NitrosPublisherWaitable::is_ready(const rcl_wait_set_t & wait_set)
 {
   std::stringstream nvtx_tag_name;
   nvtx_tag_name <<
@@ -67,8 +67,8 @@ bool NitrosPublisherWaitable::is_ready(rcl_wait_set_t * wait_set)
   nvtxRangePushWrapper(nvtx_tag_name.str().c_str(), CLR_BLUE);
 
   std::lock_guard<std::mutex> lock(guard_condition_mutex_);
-  for (size_t ii = 0; ii < wait_set->size_of_guard_conditions; ++ii) {
-    auto rcl_guard_condition = wait_set->guard_conditions[ii];
+  for (size_t ii = 0; ii < wait_set.size_of_guard_conditions; ++ii) {
+    auto rcl_guard_condition = wait_set.guard_conditions[ii];
 
     if (nullptr == rcl_guard_condition) {
       continue;
@@ -88,7 +88,7 @@ bool NitrosPublisherWaitable::is_ready(rcl_wait_set_t * wait_set)
   return false;
 }
 
-void NitrosPublisherWaitable::execute(std::shared_ptr<void> & data)
+void NitrosPublisherWaitable::execute(const std::shared_ptr<void> & data)
 {
   (void)data;  // unused
   std::stringstream nvtx_tag_name;
@@ -103,7 +103,7 @@ void NitrosPublisherWaitable::execute(std::shared_ptr<void> & data)
   nvtxRangePopWrapper();
 }
 
-void NitrosPublisherWaitable::add_to_wait_set(rcl_wait_set_t * wait_set)
+void NitrosPublisherWaitable::add_to_wait_set(rcl_wait_set_t & wait_set)
 {
   std::lock_guard<std::mutex> lock(guard_condition_mutex_);
 
@@ -111,7 +111,7 @@ void NitrosPublisherWaitable::add_to_wait_set(rcl_wait_set_t * wait_set)
     guard_condition_.trigger();
   }
 
-  guard_condition_.add_to_wait_set(*wait_set);
+  guard_condition_.add_to_wait_set(wait_set);
 }
 
 NitrosPublisher::NitrosPublisher(

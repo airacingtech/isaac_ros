@@ -46,7 +46,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gxf")
   set_property(TARGET ${PROJECT_NAME} PROPERTY
     INTERFACE_INCLUDE_DIRECTORIES
       "${EIGEN3_INCLUDE_DIR}"
-      "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/include"
+      "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/include"
   )
 endif()
 

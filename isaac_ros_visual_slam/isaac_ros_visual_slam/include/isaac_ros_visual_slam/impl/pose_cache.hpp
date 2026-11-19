@@ -22,8 +22,8 @@
 #include <list>
 #include <utility>
 
-#include "tf2/LinearMath/Transform.h"
-#include "tf2/LinearMath/Quaternion.h"
+#include "tf2/LinearMath/Transform.hpp"
+#include "tf2/LinearMath/Quaternion.hpp"
 
 namespace nvidia
 {

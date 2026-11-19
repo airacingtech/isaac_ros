@@ -48,7 +48,7 @@ install(FILES "${GXF_EXT_LIB_PATH}/lib${PROJECT_NAME}.so"
         DESTINATION "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/lib")
 set_property(TARGET ${PROJECT_NAME} PROPERTY
   INTERFACE_LINK_LIBRARIES
-    "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/lib/lib${PROJECT_NAME}.so"
+    "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/lib/lib${PROJECT_NAME}.so"
     gxf_isaac_cuda::gxf_isaac_cuda
 )
 
@@ -58,7 +58,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gxf")
           DESTINATION "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/include")
   set_target_properties(${PROJECT_NAME} PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES
-      "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/include")
+      "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/include")
 endif()
 
 install(TARGETS ${PROJECT_NAME}

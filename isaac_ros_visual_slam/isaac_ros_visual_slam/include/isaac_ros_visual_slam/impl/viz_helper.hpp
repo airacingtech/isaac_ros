@@ -27,7 +27,7 @@
 #include "cuvslam/cuvslam2.h"
 #include "isaac_ros_visual_slam/impl/types.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "tf2/LinearMath/Transform.h"
+#include "tf2/LinearMath/Transform.hpp"
 
 namespace nvidia
 {

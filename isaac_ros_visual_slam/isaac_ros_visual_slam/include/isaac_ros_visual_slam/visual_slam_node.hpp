@@ -26,7 +26,7 @@
 #include <atomic>
 
 #include "isaac_ros_visual_slam/impl/types.hpp"
-#include "message_filters/subscriber.h"
+#include "message_filters/subscriber.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/qos.hpp"
 

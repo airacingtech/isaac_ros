@@ -75,6 +75,15 @@ if( ${ARCHITECTURE} STREQUAL "x86_64" )
 
   # The payload links libcudart.so.13; expose the CUDA 13 runtime to every
   # workspace process via an ament env hook (applied by install/setup.bash).
+  set(ISAAC_ROS_CUDA13_LIB_DIR "/usr/local/cuda-13.0/lib64")
+  file(GLOB _isaac_ros_cuda13_roots LIST_DIRECTORIES true "/usr/local/cuda-13.*")
+  list(SORT _isaac_ros_cuda13_roots COMPARE NATURAL ORDER DESCENDING)
+  foreach(_isaac_ros_cuda13_root IN LISTS _isaac_ros_cuda13_roots)
+    if(EXISTS "${_isaac_ros_cuda13_root}/lib64")
+      set(ISAAC_ROS_CUDA13_LIB_DIR "${_isaac_ros_cuda13_root}/lib64")
+      break()
+    endif()
+  endforeach()
   ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/env-hooks/cuda13_runtime.dsv.in")
 
   install(DIRECTORY gxf/core/lib/gxf_x86_64_cuda_13_0/ DESTINATION share/${PROJECT_NAME}/gxf/lib)
@@ -106,57 +115,57 @@ list(APPEND ${PROJECT_NAME}_CONFIG_EXTRAS cmake/isaac_ros_gxf-extras.cmake)
 add_library(Core INTERFACE)
 set_target_properties(Core PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES
-    "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/include"
+    "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/include"
 )
 set_property(TARGET Core PROPERTY
   INTERFACE_LINK_LIBRARIES
     magic_enum::magic_enum
-    "$<INSTALL_PREFIX>/lib/libgxf_core.so"
+    "${CMAKE_INSTALL_PREFIX}/lib/libgxf_core.so"
 )
 
 # Logger
 add_library(Logger INTERFACE)
 set_target_properties(Logger PROPERTIES
   INTERFACE_LINK_LIBRARIES
-    "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/lib/logger/libgxf_logger.so"
+    "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/lib/logger/libgxf_logger.so"
   INTERFACE_INCLUDE_DIRECTORIES
-    "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/include"
+    "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/include"
 )
 
 # Std
 add_library(Std INTERFACE)
 set_target_properties(Std PROPERTIES
   INTERFACE_LINK_LIBRARIES
-    "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/lib/std/libgxf_std.so"
+    "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/lib/std/libgxf_std.so"
   INTERFACE_INCLUDE_DIRECTORIES
-    "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/include"
+    "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/include"
 )
 
 # Multimedia
 add_library(Multimedia INTERFACE)
 set_target_properties(Multimedia PROPERTIES
   INTERFACE_LINK_LIBRARIES
-    "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/lib/multimedia/libgxf_multimedia.so"
+    "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/lib/multimedia/libgxf_multimedia.so"
   INTERFACE_INCLUDE_DIRECTORIES
-    "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/include"
+    "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/include"
 )
 
 # Serialization
 add_library(Serialization INTERFACE)
 set_target_properties(Serialization PROPERTIES
   INTERFACE_LINK_LIBRARIES
-    "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/lib/serialization/libgxf_serialization.so"
+    "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/lib/serialization/libgxf_serialization.so"
   INTERFACE_INCLUDE_DIRECTORIES
-    "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/include"
+    "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/include"
 )
 
 # Cuda
 add_library(Cuda INTERFACE)
 set_target_properties(Cuda PROPERTIES
   INTERFACE_LINK_LIBRARIES
-    "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/lib/cuda/libgxf_cuda.so"
+    "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/lib/cuda/libgxf_cuda.so"
   INTERFACE_INCLUDE_DIRECTORIES
-    "$<INSTALL_PREFIX>/share/${PROJECT_NAME}/gxf/include"
+    "${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/gxf/include"
 )
 
 install(TARGETS Core Logger Std Multimedia Serialization Cuda

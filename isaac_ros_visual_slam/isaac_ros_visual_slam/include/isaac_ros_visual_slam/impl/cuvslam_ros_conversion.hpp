@@ -23,7 +23,7 @@
 #include "cuvslam/cuvslam2.h"
 #include "cv_bridge/cv_bridge.hpp"
 #include "isaac_ros_visual_slam/impl/types.hpp"
-#include "tf2/LinearMath/Transform.h"
+#include "tf2/LinearMath/Transform.hpp"
 #include "Eigen/Eigen"
 
 namespace nvidia

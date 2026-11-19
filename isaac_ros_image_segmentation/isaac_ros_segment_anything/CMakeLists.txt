@@ -18,11 +18,18 @@
 cmake_minimum_required(VERSION 3.22.1)
 # nvcc is not on PATH on the AV24; default to the toolkit matching the vendored
 # cuda_13_0 GXF payload. Override with CUDACXX or -DCMAKE_CUDA_COMPILER.
-if(NOT DEFINED CMAKE_CUDA_COMPILER AND NOT DEFINED ENV{CUDACXX} AND EXISTS "/usr/local/cuda-13.0/bin/nvcc")
-    set(CMAKE_CUDA_COMPILER "/usr/local/cuda-13.0/bin/nvcc")
-    # Old-style FindCUDA resolves the /usr/local/cuda symlink (12.6 on the AV24);
-    # keep headers and libs on the same toolkit as nvcc.
-    set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda-13.0")
+if(NOT DEFINED CMAKE_CUDA_COMPILER AND NOT DEFINED ENV{CUDACXX})
+    file(GLOB _isaac_ros_cuda13_roots LIST_DIRECTORIES true "/usr/local/cuda-13.*")
+    list(SORT _isaac_ros_cuda13_roots COMPARE NATURAL ORDER DESCENDING)
+    foreach(_isaac_ros_cuda13_root IN LISTS _isaac_ros_cuda13_roots)
+        if(EXISTS "${_isaac_ros_cuda13_root}/bin/nvcc")
+            set(CMAKE_CUDA_COMPILER "${_isaac_ros_cuda13_root}/bin/nvcc")
+            # Old-style FindCUDA resolves the /usr/local/cuda symlink (12.6 on the AV24);
+            # keep headers and libs on the same toolkit as nvcc.
+            set(CUDA_TOOLKIT_ROOT_DIR "${_isaac_ros_cuda13_root}")
+            break()
+        endif()
+    endforeach()
 endif()
 
 project(isaac_ros_segment_anything LANGUAGES C CXX)

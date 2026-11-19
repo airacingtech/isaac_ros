@@ -18,6 +18,7 @@
 #ifndef ISAAC_ROS_NITROS__NITROS_PUBLISHER_HPP_
 #define ISAAC_ROS_NITROS__NITROS_PUBLISHER_HPP_
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -73,9 +74,33 @@ public:
     return nullptr;
   }
 
-  bool is_ready(rcl_wait_set_t * wait_set) override;
-  void execute(std::shared_ptr<void> & data) override;
-  void add_to_wait_set(rcl_wait_set_t * wait_set) override;
+  std::shared_ptr<void> take_data_by_entity_id(size_t id) override
+  {
+    (void)id;
+    return nullptr;
+  }
+
+  bool is_ready(const rcl_wait_set_t & wait_set) override;
+  void execute(const std::shared_ptr<void> & data) override;
+  void add_to_wait_set(rcl_wait_set_t & wait_set) override;
+
+  void set_on_ready_callback(std::function<void(size_t, int)> callback) override
+  {
+    guard_condition_.set_on_trigger_callback(
+      [callback](size_t count) {
+        callback(count, 0);
+      });
+  }
+
+  void clear_on_ready_callback() override
+  {
+    guard_condition_.set_on_trigger_callback(nullptr);
+  }
+
+  std::vector<std::shared_ptr<rclcpp::TimerBase>> get_timers() const override
+  {
+    return {};
+  }
 
 private:
   rclcpp::Node & node_;

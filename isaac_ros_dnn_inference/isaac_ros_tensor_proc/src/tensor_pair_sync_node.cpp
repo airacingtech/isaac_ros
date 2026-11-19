@@ -17,8 +17,8 @@
 
 #include "isaac_ros_tensor_proc/tensor_pair_sync_node.hpp"
 
-#include <message_filters/synchronizer.h>
-#include <message_filters/sync_policies/exact_time.h>
+#include <message_filters/synchronizer.hpp>
+#include <message_filters/sync_policies/exact_time.hpp>
 
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_builder.hpp"
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"

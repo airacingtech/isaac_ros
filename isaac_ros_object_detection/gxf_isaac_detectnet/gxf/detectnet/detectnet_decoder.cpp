@@ -21,7 +21,7 @@
 #include <utility>
 #include <vector>
 
-#include "./detection2_d_array_message.hpp"
+#include "detectnet/detection2_d_array_message.hpp"
 #include "./detectnet_decoder.hpp"
 
 #include "cuda.h"

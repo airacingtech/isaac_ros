@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-#include "./detection2_d_array_message.hpp"
+#include "detectnet/detection2_d_array_message.hpp"
 #include "deepstream_utils/nvdsinferutils/dbscan/nvdsinfer_dbscan.hpp"
 
 #include "gxf/core/entity.hpp"

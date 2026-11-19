@@ -19,9 +19,10 @@
 #define ISAAC_ROS_MANAGED_NITROS__MANAGED_NITROS_MESSAGE_FILTERS_SUBSCRIBER_HPP_
 
 #include <memory>
+#include <stdexcept>
 #include <string>
 
-#include "message_filters/subscriber.h"
+#include "message_filters/subscriber.hpp"
 
 #include "isaac_ros_managed_nitros/managed_nitros_subscriber.hpp"
 #include "isaac_ros_nitros/types/nitros_type_message_filter_traits.hpp"
@@ -37,7 +38,7 @@ namespace message_filters
 
 template<class NitrosTypeViewT, class NodeType = rclcpp::Node>
 class Subscriber
-  : public ::message_filters::SubscriberBase<NodeType>,
+  : public ::message_filters::SubscriberBase,
   public ::message_filters::SimpleFilter<typename NitrosTypeViewT::BaseType>
 {
 public:
@@ -117,7 +118,7 @@ public:
    */
   void subscribe(
     NodePtr node, const std::string & topic,
-    const rmw_qos_profile_t qos = rmw_qos_profile_default) override
+    const rmw_qos_profile_t qos = rmw_qos_profile_default)
   {
     // Use 4-parameter shared pointer overload
     subscribe(node, topic, qos, rclcpp::SubscriptionOptions());
@@ -135,7 +136,7 @@ public:
   // TODO(wjwwood): deprecate in favor of API's that use `rclcpp::QoS` instead.
   void subscribe(
     NodeType * node, const std::string & topic,
-    const rmw_qos_profile_t qos = rmw_qos_profile_default) override
+    const rmw_qos_profile_t qos = rmw_qos_profile_default)
   {
     // Use 4-parameter raw pointer overload
     subscribe(node, topic, qos, rclcpp::SubscriptionOptions());
@@ -155,7 +156,7 @@ public:
     NodePtr node,
     const std::string & topic,
     const rmw_qos_profile_t qos,
-    rclcpp::SubscriptionOptions options) override
+    rclcpp::SubscriptionOptions options)
   {
     // Use 5-parameter shared pointer overload
     subscribe(node, topic, qos, options, "");
@@ -175,7 +176,7 @@ public:
     NodeType * node,
     const std::string & topic,
     const rmw_qos_profile_t qos,
-    rclcpp::SubscriptionOptions options) override
+    rclcpp::SubscriptionOptions options)
   {
     // Use 5-parameter raw pointer overload
     subscribe(node, topic, qos, options, "");
@@ -252,6 +253,29 @@ public:
 
       node_raw_ = node;
     }
+  }
+
+  void subscribe(
+    ::message_filters::SubscriberBase::RequiredInterfaces node_interfaces,
+    const std::string & topic,
+    const rclcpp::QoS & qos) override
+  {
+    subscribe(node_interfaces, topic, qos, rclcpp::SubscriptionOptions());
+  }
+
+  void subscribe(
+    ::message_filters::SubscriberBase::RequiredInterfaces node_interfaces,
+    const std::string & topic,
+    const rclcpp::QoS & qos,
+    rclcpp::SubscriptionOptions options) override
+  {
+    (void)node_interfaces;
+    (void)topic;
+    (void)qos;
+    (void)options;
+    throw std::runtime_error(
+            "nitros::message_filters::Subscriber requires a node pointer; "
+            "subscribing through node interfaces is not supported");
   }
 
   /**

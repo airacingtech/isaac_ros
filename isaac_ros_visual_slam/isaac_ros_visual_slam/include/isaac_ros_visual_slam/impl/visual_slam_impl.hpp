@@ -44,7 +44,7 @@
 #include "isaac_ros_visual_slam/impl/types.hpp"
 #include "isaac_ros_visual_slam/visual_slam_node.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "tf2/LinearMath/Transform.h"
+#include "tf2/LinearMath/Transform.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/static_transform_broadcaster.h"
 #include "tf2_ros/transform_broadcaster.h"
